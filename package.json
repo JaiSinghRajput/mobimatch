@@ -1,0 +1,27 @@
+{
+  "name": "mobimatch-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MobiMatch Monorepo: Backend API, Admin Android App, and User Android App",
+  "workspaces": [
+    "packages/*",
+    "backend",
+    "mobimatch",
+    "mobimatch-admin"
+  ],
+  "scripts": {
+    "build": "npm run --workspaces --if-present build",
+    "test": "npm run --workspace=packages/api-contracts test && npm run --workspace=backend test",
+    "backend:dev": "npm run --workspace=backend dev",
+    "backend:test": "npm run --workspace=backend test",
+    "admin:start": "npm run --workspace=mobimatch-admin start",
+    "user:start": "npm run --workspace=mobimatch start"
+  },
+  "keywords": [
+    "mobimatch",
+    "mobile-repair",
+    "compatibility"
+  ],
+  "author": "MobiMatch Team",
+  "license": "UNLICENSED"
+}

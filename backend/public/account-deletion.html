@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MobiMatch — Account & Data Deletion Request</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #F8FAFC;
+            color: #0F172A;
+            line-height: 1.6;
+            padding: 24px;
+            max-width: 680px;
+            margin: 0 auto;
+        }
+        .card {
+            background: #FFFFFF;
+            border-radius: 12px;
+            padding: 32px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border: 1px solid #E2E8F0;
+        }
+        h1 {
+            color: #0284C7;
+            font-size: 24px;
+            margin-top: 0;
+        }
+        h2 {
+            font-size: 18px;
+            margin-top: 24px;
+            border-bottom: 1px solid #E2E8F0;
+            padding-bottom: 8px;
+        }
+        .badge {
+            display: inline-block;
+            background: #E0F2FE;
+            color: #0284C7;
+            font-size: 12px;
+            font-weight: 600;
+            padding: 4px 10px;
+            border-radius: 999px;
+            margin-bottom: 16px;
+        }
+        .btn-delete {
+            background-color: #DC2626;
+            color: #FFFFFF;
+            border: none;
+            padding: 12px 20px;
+            font-size: 15px;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 12px;
+        }
+        .btn-delete:hover {
+            background-color: #B91C1C;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #CBD5E1;
+            border-radius: 6px;
+            margin-top: 6px;
+            margin-bottom: 16px;
+            box-sizing: border-box;
+        }
+        .notice {
+            background: #FEF3C7;
+            border-left: 4px solid #D97706;
+            padding: 12px;
+            border-radius: 4px;
+            font-size: 14px;
+            color: #92400E;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <span class="badge">Google Play Compliance Resource</span>
+        <h1>MobiMatch Account & Data Deletion</h1>
+        <p>
+            In accordance with Google Play's User Data policies, MobiMatch provides users with clear mechanisms to request the permanent deletion of their account and associated personal data.
+        </p>
+
+        <h2>Option 1: In-App Deletion (Instant)</h2>
+        <p>
+            If you have the MobiMatch app installed on your Android device:
+        </p>
+        <ol>
+            <li>Open the <strong>MobiMatch</strong> app.</li>
+            <li>Tap <strong>Profile</strong> in the top header.</li>
+            <li>Scroll down and tap <strong>Delete MobiMatch Account</strong>.</li>
+            <li>Confirm the prompt. Your active sessions, profile details (name, email, phone number, shop name, city) are immediately removed and anonymized.</li>
+        </ol>
+
+        <h2>Option 2: Web Deletion Request Form</h2>
+        <p>
+            If you have already uninstalled the app or cannot sign in, submit your verified Google account email below to initiate an account deletion review:
+        </p>
+        <form onsubmit="event.preventDefault(); alert('Your deletion request has been submitted. Our security team will process it within 48 hours in accordance with our data retention policy.');">
+            <label for="email"><strong>Google Account Email used with MobiMatch:</strong></label>
+            <input type="email" id="email" required placeholder="name@example.com" />
+
+            <button type="submit" class="btn-delete">Submit Account Deletion Request</button>
+        </form>
+
+        <h2>Data Retention & Deletion Policy</h2>
+        <ul>
+            <li><strong>Personal Data Removed:</strong> Your Google Subject ID link, profile email, display name, workshop phone number, shop name, and city are permanently scrubbed from active databases.</li>
+            <li><strong>Session Invalidation:</strong> All active authentication and refresh tokens across all devices are immediately revoked.</li>
+            <li><strong>Shared Catalog Data:</strong> Public spare-part compatibility definitions curated by administrators are not personal data and remain preserved in the catalog.</li>
+            <li><strong>Database Backups:</strong> System backups with seven-day rolling retention automatically expire and purge historical records permanently.</li>
+        </ul>
+
+        <div class="notice">
+            If you have questions regarding your data privacy, you can also contact the MobiMatch team directly via our official support channels.
+        </div>
+    </div>
+</body>
+</html>
