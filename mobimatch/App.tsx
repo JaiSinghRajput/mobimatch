@@ -10,6 +10,7 @@ import {
   StatusBar,
   Alert,
   Platform,
+  Linking,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { userApi } from './src/api/client';
@@ -103,7 +104,10 @@ function UserAppContent() {
   const handleSignIn = async () => {
     setLoading(true);
     try {
-      const mockToken = `mock-:${authEmailInput.trim()}:sub-user-${Date.now()}:Technician User`;
+      const email = authEmailInput.trim().toLowerCase();
+      // Use deterministic Google sub based on email so registered user profile is preserved on repeat logins
+      const stableSub = 'google-sub-' + email.replace(/[^a-z0-9]/g, '_');
+      const mockToken = `mock-:${email}:${stableSub}:Technician User`;
       const res = await userApi.googleAuth(mockToken);
       setCurrentUser(res.user);
     } catch (err: any) {
@@ -266,8 +270,11 @@ function UserAppContent() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.centerCard}>
-          <Text style={[typography.h1, { color: colors.primary, marginBottom: 8 }]}>
+          <Text style={[typography.h1, { color: colors.primary, marginBottom: 4 }]}>
             MobiMatch
+          </Text>
+          <Text style={styles.brandingSubtitle}>
+            Mobimatch by jhankar mobile
           </Text>
           <Text style={[typography.bodySecondary, { textAlign: 'center', marginBottom: 24 }]}>
             Find mobile spare-part compatibility groups for phone repairs
@@ -297,6 +304,19 @@ function UserAppContent() {
               </Text>
             )}
           </TouchableOpacity>
+        </View>
+
+        {/* Footer Branding */}
+        <View style={styles.appFooter}>
+          <Text style={styles.footerText}>
+            crafted by{' '}
+            <Text
+              style={styles.footerLink}
+              onPress={() => Linking.openURL('https://laughingdev.com')}
+            >
+              laughingdev
+            </Text>
+          </Text>
         </View>
       </SafeAreaView>
     );
@@ -394,19 +414,35 @@ function UserAppContent() {
       {/* Top Header */}
       <View style={styles.header}>
         <TouchableOpacity
+          style={{ flexDirection: 'row', alignItems: 'center' }}
           onPress={() => {
             setCurrentScreen('home');
             setSearchQuery('');
           }}
         >
-          <Text style={[typography.h2, { color: colors.primary }]}>MobiMatch</Text>
+          <Text style={[typography.h2, { color: colors.primary, fontWeight: '800' }]}>MobiMatch</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.profileBtn}
-          onPress={() => setCurrentScreen('profile')}
-        >
-          <Text style={{ fontWeight: '600', color: colors.textSecondary }}>Profile</Text>
-        </TouchableOpacity>
+
+        {currentScreen !== 'home' ? (
+          <TouchableOpacity
+            style={styles.headerHomeBtn}
+            onPress={() => {
+              setCurrentScreen('home');
+              setSearchQuery('');
+            }}
+          >
+            <Text style={styles.headerHomeBtnText}>← Home</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={styles.profileBtn}
+            onPress={() => setCurrentScreen('profile')}
+          >
+            <Text style={{ fontWeight: '600', color: colors.primary, fontSize: 13 }}>
+              {currentUser.name?.split(' ')[0] || 'Profile'} 👤
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       <ScrollView style={styles.scrollContent}>
@@ -422,6 +458,11 @@ function UserAppContent() {
                 onChangeText={setSearchQuery}
               />
             </View>
+
+            {/* Subtitle Branding right below search bar */}
+            <Text style={styles.brandingSubtitle}>
+              Mobimatch by jhankar mobile
+            </Text>
 
             {/* Suggestions Dropdown */}
             {searchResults.length > 0 && (
@@ -889,8 +930,93 @@ function UserAppContent() {
           </View>
         )}
 
-        <View style={{ height: 40 }} />
+        <View style={{ height: 20 }} />
       </ScrollView>
+
+      {/* Footer Branding with Clickable laughingdev URL */}
+      <View style={styles.appFooter}>
+        <Text style={styles.footerText}>
+          crafted by{' '}
+          <Text
+            style={styles.footerLink}
+            onPress={() => Linking.openURL('https://laughingdev.com')}
+          >
+            laughingdev
+          </Text>
+        </Text>
+      </View>
+
+      {/* Persistent Bottom Navigation Bar */}
+      <View style={styles.bottomNav}>
+        <TouchableOpacity
+          style={[styles.bottomNavItem, currentScreen === 'home' && styles.bottomNavItemActive]}
+          onPress={() => {
+            setCurrentScreen('home');
+            setSearchQuery('');
+          }}
+        >
+          <Text style={[styles.bottomNavIcon, currentScreen === 'home' && styles.bottomNavIconActive]}>
+            🔍
+          </Text>
+          <Text style={[styles.bottomNavLabel, currentScreen === 'home' && styles.bottomNavLabelActive]}>
+            Search
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.bottomNavItem, currentScreen === 'browse_brands' && styles.bottomNavItemActive]}
+          onPress={() => {
+            loadBrands();
+            setCurrentScreen('browse_brands');
+          }}
+        >
+          <Text style={[styles.bottomNavIcon, currentScreen === 'browse_brands' && styles.bottomNavIconActive]}>
+            🏷️
+          </Text>
+          <Text style={[styles.bottomNavLabel, currentScreen === 'browse_brands' && styles.bottomNavLabelActive]}>
+            Brands
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.bottomNavItem, currentScreen === 'browse_categories' && styles.bottomNavItemActive]}
+          onPress={() => {
+            loadCategories();
+            setCurrentScreen('browse_categories');
+          }}
+        >
+          <Text style={[styles.bottomNavIcon, currentScreen === 'browse_categories' && styles.bottomNavIconActive]}>
+            📂
+          </Text>
+          <Text style={[styles.bottomNavLabel, currentScreen === 'browse_categories' && styles.bottomNavLabelActive]}>
+            Categories
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.bottomNavItem, currentScreen === 'report_issue' && styles.bottomNavItemActive]}
+          onPress={() => setCurrentScreen('report_issue')}
+        >
+          <Text style={[styles.bottomNavIcon, currentScreen === 'report_issue' && styles.bottomNavIconActive]}>
+            ⚠️
+          </Text>
+          <Text style={[styles.bottomNavLabel, currentScreen === 'report_issue' && styles.bottomNavLabelActive]}>
+            Report
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.bottomNavItem, currentScreen === 'profile' && styles.bottomNavItemActive]}
+          onPress={() => setCurrentScreen('profile')}
+        >
+          <Text style={[styles.bottomNavIcon, currentScreen === 'profile' && styles.bottomNavIconActive]}>
+            👤
+          </Text>
+          <Text style={[styles.bottomNavLabel, currentScreen === 'profile' && styles.bottomNavLabelActive]}>
+            Profile
+          </Text>
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
@@ -964,7 +1090,97 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   backBtn: {
-    marginBottom: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    backgroundColor: '#EEF2FF',
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#C7D2FE',
+  },
+  brandingSubtitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.primary,
+    textAlign: 'center',
+    letterSpacing: 0.5,
+    marginTop: 4,
+    marginBottom: 14,
+  },
+  headerHomeBtn: {
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    backgroundColor: '#EEF2FF',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#C7D2FE',
+  },
+  headerHomeBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  appFooter: {
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surface,
+  },
+  footerText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontWeight: '500',
+  },
+  footerLink: {
+    fontSize: 12,
+    color: colors.primary,
+    fontWeight: '700',
+    textDecorationLine: 'underline',
+  },
+  bottomNav: {
+    flexDirection: 'row',
+    backgroundColor: colors.surface,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    justifyContent: 'space-around',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+  },
+  bottomNavItem: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    flex: 1,
+  },
+  bottomNavItemActive: {
+    backgroundColor: '#EEF2FF',
+  },
+  bottomNavIcon: {
+    fontSize: 17,
+    marginBottom: 2,
+    opacity: 0.7,
+  },
+  bottomNavIconActive: {
+    opacity: 1,
+  },
+  bottomNavLabel: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    fontWeight: '600',
+  },
+  bottomNavLabelActive: {
+    color: colors.primary,
+    fontWeight: '700',
   },
   label: {
     fontSize: 13,
