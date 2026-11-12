@@ -36,6 +36,36 @@ export default function App() {
   const [loading, setLoading] = useState<boolean>(false);
   const [appConfig, setAppConfig] = useState<AppConfigResponse | null>(null);
   const [activeTab, setActiveTab] = useState<AdminTab>('compatibility');
+  const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
+
+  // Tab Title Helpers
+  const getTabLabel = (tab: AdminTab) => {
+    switch (tab) {
+      case 'compatibility': return 'Bulk Compatibility Parser';
+      case 'brands': return 'Brands Catalog';
+      case 'categories': return 'Spare Part Categories';
+      case 'models': return 'Mobile Models';
+      case 'users': return 'Technician Accounts';
+      case 'reports': return 'Issue Reports';
+      case 'requests': return 'Missing Model Requests';
+      case 'allowlist': return 'Admin Allowlist';
+      default: return 'Admin Dashboard';
+    }
+  };
+
+  const getTabIcon = (tab: AdminTab) => {
+    switch (tab) {
+      case 'compatibility': return '⚡';
+      case 'brands': return '🏷️';
+      case 'categories': return '📂';
+      case 'models': return '📱';
+      case 'users': return '👥';
+      case 'reports': return '⚠️';
+      case 'requests': return '❓';
+      case 'allowlist': return '🛡️';
+      default: return '⚙️';
+    }
+  };
 
   // Input States
   const [authEmailInput, setAuthEmailInput] = useState('admin@mobimatch.local');
@@ -343,48 +373,202 @@ export default function App() {
   // ==========================================
   return (
     <SafeAreaView style={styles.container}>
-      {/* Top Header */}
+      {/* Top Header with Hamburger */}
       <View style={styles.header}>
-        <View>
-          <Text style={typography.h2}>MobiMatch Admin</Text>
-          <Text style={typography.caption}>{currentUser.email}</Text>
+        <View style={styles.headerLeft}>
+          <TouchableOpacity
+            style={styles.hamburgerBtn}
+            onPress={() => setSidebarOpen(true)}
+            accessibilityLabel="Open Navigation Menu"
+          >
+            <View style={styles.hamburgerBar} />
+            <View style={styles.hamburgerBar} />
+            <View style={styles.hamburgerBar} />
+          </TouchableOpacity>
+          <View style={{ marginLeft: 12 }}>
+            <Text style={styles.headerTitle}>MobiMatch Admin</Text>
+            <Text style={styles.headerSubtitle}>
+              {getTabIcon(activeTab)} {getTabLabel(activeTab)}
+            </Text>
+          </View>
         </View>
-        <TouchableOpacity style={styles.logoutBtn} onPress={handleSignOut}>
-          <Text style={{ color: colors.error, fontWeight: '600' }}>Sign Out</Text>
+
+        <TouchableOpacity
+          style={styles.menuPillBtn}
+          onPress={() => setSidebarOpen(true)}
+        >
+          <Text style={styles.menuPillText}>☰ Menu</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Tabs Navigation */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabsNav}>
-        {[
-          { key: 'compatibility', label: 'Compatibility' },
-          { key: 'brands', label: 'Brands' },
-          { key: 'categories', label: 'Categories' },
-          { key: 'models', label: 'Models' },
-          { key: 'users', label: 'Users' },
-          { key: 'reports', label: 'Reports' },
-          { key: 'requests', label: 'Requests' },
-          { key: 'allowlist', label: 'Allowlist' },
-        ].map((tab) => (
+      {/* Collapsible Sidebar Overlay */}
+      {sidebarOpen && (
+        <View style={styles.sidebarOverlay}>
+          {/* Backdrop Tap-to-Close */}
           <TouchableOpacity
-            key={tab.key}
-            style={[styles.tabItem, activeTab === tab.key && styles.tabItemActive]}
-            onPress={() => {
-              setActiveTab(tab.key as AdminTab);
-              setPreview(null);
-            }}
-          >
-            <Text
-              style={[
-                styles.tabText,
-                activeTab === tab.key && styles.tabTextActive,
-              ]}
-            >
-              {tab.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+            style={styles.sidebarBackdrop}
+            activeOpacity={1}
+            onPress={() => setSidebarOpen(false)}
+          />
+
+          {/* Drawer Container */}
+          <View style={styles.sidebarDrawer}>
+            {/* Drawer Header */}
+            <View style={styles.sidebarHeader}>
+              <View>
+                <Text style={styles.sidebarAppTitle}>MobiMatch Admin</Text>
+                <View style={styles.statusRow}>
+                  <View style={styles.statusDot} />
+                  <Text style={styles.statusText}>Authorized Admin</Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                style={styles.closeBtn}
+                onPress={() => setSidebarOpen(false)}
+                accessibilityLabel="Close Navigation"
+              >
+                <Text style={styles.closeBtnText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Admin Profile Card */}
+            <View style={styles.sidebarUserCard}>
+              <View style={styles.avatarCircle}>
+                <Text style={styles.avatarText}>
+                  {(currentUser.email?.[0] || 'A').toUpperCase()}
+                </Text>
+              </View>
+              <View style={{ flex: 1, marginLeft: 10 }}>
+                <Text style={styles.sidebarUserEmail} numberOfLines={1}>
+                  {currentUser.email}
+                </Text>
+                <Text style={styles.sidebarUserRole}>Super Administrator</Text>
+              </View>
+            </View>
+
+            {/* Navigation Drawer Items */}
+            <ScrollView style={styles.sidebarNavScroll} showsVerticalScrollIndicator={false}>
+              <Text style={styles.navSectionHeader}>CORE ENGINE</Text>
+              <TouchableOpacity
+                style={[styles.navItem, activeTab === 'compatibility' && styles.navItemActive]}
+                onPress={() => {
+                  setActiveTab('compatibility');
+                  setPreview(null);
+                  setSidebarOpen(false);
+                }}
+              >
+                <Text style={styles.navItemIcon}>⚡</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.navItemText, activeTab === 'compatibility' && styles.navItemTextActive]}>
+                    Compatibility Parser
+                  </Text>
+                  <Text style={styles.navItemDesc}>Bulk multiline '=' publish</Text>
+                </View>
+                {activeTab === 'compatibility' && <View style={styles.activePill} />}
+              </TouchableOpacity>
+
+              <Text style={styles.navSectionHeader}>CATALOG MANAGEMENT</Text>
+              {[
+                { key: 'brands', label: 'Brands', icon: '🏷️', desc: 'Device manufacturers' },
+                { key: 'categories', label: 'Categories', icon: '📂', desc: 'Spare part types' },
+                { key: 'models', label: 'Mobile Models', icon: '📱', desc: 'Models & model numbers' },
+              ].map((item) => (
+                <TouchableOpacity
+                  key={item.key}
+                  style={[styles.navItem, activeTab === item.key && styles.navItemActive]}
+                  onPress={() => {
+                    setActiveTab(item.key as AdminTab);
+                    setPreview(null);
+                    setSidebarOpen(false);
+                  }}
+                >
+                  <Text style={styles.navItemIcon}>{item.icon}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.navItemText, activeTab === item.key && styles.navItemTextActive]}>
+                      {item.label}
+                    </Text>
+                    <Text style={styles.navItemDesc}>{item.desc}</Text>
+                  </View>
+                  {activeTab === item.key && <View style={styles.activePill} />}
+                </TouchableOpacity>
+              ))}
+
+              <Text style={styles.navSectionHeader}>MODERATION & AUDIT</Text>
+              {[
+                { key: 'users', label: 'Technician Users', icon: '👥', desc: 'User accounts & profiles' },
+                { key: 'reports', label: 'Issue Reports', icon: '⚠️', desc: 'Compatibility bug reports' },
+                { key: 'requests', label: 'Missing Models', icon: '❓', desc: 'Technician model requests' },
+              ].map((item) => (
+                <TouchableOpacity
+                  key={item.key}
+                  style={[styles.navItem, activeTab === item.key && styles.navItemActive]}
+                  onPress={() => {
+                    setActiveTab(item.key as AdminTab);
+                    setPreview(null);
+                    setSidebarOpen(false);
+                  }}
+                >
+                  <Text style={styles.navItemIcon}>{item.icon}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.navItemText, activeTab === item.key && styles.navItemTextActive]}>
+                      {item.label}
+                    </Text>
+                    <Text style={styles.navItemDesc}>{item.desc}</Text>
+                  </View>
+                  {activeTab === item.key && <View style={styles.activePill} />}
+                </TouchableOpacity>
+              ))}
+
+              <Text style={styles.navSectionHeader}>SECURITY & ACCESS</Text>
+              <TouchableOpacity
+                style={[styles.navItem, activeTab === 'allowlist' && styles.navItemActive]}
+                onPress={() => {
+                  setActiveTab('allowlist');
+                  setPreview(null);
+                  setSidebarOpen(false);
+                }}
+              >
+                <Text style={styles.navItemIcon}>🛡️</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.navItemText, activeTab === 'allowlist' && styles.navItemTextActive]}>
+                    Admin Allowlist
+                  </Text>
+                  <Text style={styles.navItemDesc}>Manage authorized admins</Text>
+                </View>
+                {activeTab === 'allowlist' && <View style={styles.activePill} />}
+              </TouchableOpacity>
+            </ScrollView>
+
+            {/* Drawer Footer */}
+            <View style={styles.sidebarFooter}>
+              <TouchableOpacity
+                style={styles.sidebarLogoutBtn}
+                onPress={() => {
+                  setSidebarOpen(false);
+                  handleSignOut();
+                }}
+              >
+                <Text style={styles.sidebarLogoutText}>🚪 Sign Out</Text>
+              </TouchableOpacity>
+              <Text style={styles.versionText}>MobiMatch Admin • SDK 58</Text>
+            </View>
+          </View>
+        </View>
+      )}
+
+      {/* Active Section Quick Bar */}
+      <View style={styles.activeSectionBar}>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Text style={{ fontSize: 16, marginRight: 8 }}>{getTabIcon(activeTab)}</Text>
+          <Text style={styles.activeSectionTitle}>{getTabLabel(activeTab)}</Text>
+        </View>
+        <TouchableOpacity
+          style={styles.changeSectionBtn}
+          onPress={() => setSidebarOpen(true)}
+        >
+          <Text style={styles.changeSectionBtnText}>Switch ☰</Text>
+        </TouchableOpacity>
+      </View>
 
       {/* Tab Contents */}
       <ScrollView style={styles.scrollContent}>
@@ -1005,37 +1189,262 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingVertical: 10,
     backgroundColor: colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  logoutBtn: {
-    padding: spacing.xs,
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  tabsNav: {
-    backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    paddingHorizontal: spacing.sm,
-    maxHeight: 50,
+  hamburgerBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 8,
+    backgroundColor: colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  tabItem: {
-    paddingVertical: spacing.sm,
+  hamburgerBar: {
+    width: 18,
+    height: 2.2,
+    backgroundColor: colors.textPrimary,
+    borderRadius: 1.5,
+    marginVertical: 1.8,
+  },
+  headerTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  headerSubtitle: {
+    fontSize: 12,
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  menuPillBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    backgroundColor: colors.primaryLight,
+  },
+  menuPillText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  activeSectionBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#F1F5F9',
     paddingHorizontal: spacing.md,
-    marginRight: spacing.xs,
+    paddingVertical: 9,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
-  tabItemActive: {
-    borderBottomWidth: 2,
-    borderBottomColor: colors.primary,
+  activeSectionTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.textPrimary,
   },
-  tabText: {
-    fontSize: 14,
+  changeSectionBtn: {
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    backgroundColor: colors.surface,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: colors.borderDark,
+  },
+  changeSectionBtnText: {
+    fontSize: 11,
+    fontWeight: '600',
     color: colors.textSecondary,
   },
-  tabTextActive: {
+  sidebarOverlay: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 999,
+    flexDirection: 'row',
+  },
+  sidebarBackdrop: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(15, 23, 42, 0.55)',
+  },
+  sidebarDrawer: {
+    width: 290,
+    height: '100%',
+    backgroundColor: colors.surface,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 10 : 16,
+    paddingBottom: 20,
+    paddingHorizontal: spacing.md,
+    zIndex: 1000,
+    elevation: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 4, height: 0 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+  },
+  sidebarHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  sidebarAppTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: colors.textPrimary,
+  },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#10B981',
+    marginRight: 5,
+  },
+  statusText: {
+    fontSize: 11,
+    color: '#059669',
+    fontWeight: '600',
+  },
+  closeBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  closeBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.textSecondary,
+  },
+  sidebarUserCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+    padding: 10,
+    borderRadius: 8,
+    marginTop: 10,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  avatarCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 15,
+  },
+  sidebarUserEmail: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  sidebarUserRole: {
+    fontSize: 11,
+    color: colors.textSecondary,
+  },
+  sidebarNavScroll: {
+    flex: 1,
+  },
+  navSectionHeader: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.textMuted,
+    letterSpacing: 0.8,
+    marginTop: 12,
+    marginBottom: 5,
+    paddingLeft: 4,
+  },
+  navItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 9,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    marginBottom: 2,
+  },
+  navItemActive: {
+    backgroundColor: colors.primaryLight,
+  },
+  navItemIcon: {
+    fontSize: 16,
+    marginRight: 10,
+  },
+  navItemText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  navItemTextActive: {
     color: colors.primary,
     fontWeight: '700',
+  },
+  navItemDesc: {
+    fontSize: 10,
+    color: colors.textSecondary,
+  },
+  activePill: {
+    width: 4,
+    height: 18,
+    borderRadius: 2,
+    backgroundColor: colors.primary,
+  },
+  sidebarFooter: {
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  sidebarLogoutBtn: {
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: colors.errorBg,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  sidebarLogoutText: {
+    color: colors.error,
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  versionText: {
+    fontSize: 10,
+    color: colors.textMuted,
+    textAlign: 'center',
   },
   scrollContent: {
     padding: spacing.md,
