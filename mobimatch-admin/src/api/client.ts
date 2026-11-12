@@ -5,8 +5,9 @@ import {
   AppConfigResponse,
 } from '@mobimatch/api-contracts';
 
-// In Android emulator, 10.0.2.2 points to host machine. For local testing on web/dev: localhost
-const DEFAULT_API_URL = 'http://10.0.2.2:3000';
+// For physical devices running Expo Go, use your PC's LAN IP (192.168.1.10) or configure EXPO_PUBLIC_API_URL.
+// For Android emulator, you can use 10.0.2.2.
+const DEFAULT_API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.10:3000';
 
 class AdminApiClient {
   private baseUrl: string = DEFAULT_API_URL;
