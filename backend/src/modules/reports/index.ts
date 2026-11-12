@@ -131,3 +131,4 @@ export const reportRoutes: FastifyPluginAsync = async (server: FastifyInstance) 
     }
   );
 };
+

@@ -76,3 +76,4 @@ describe('Compatibility Parser Engine', () => {
     expect(result.lines[0].tokens[1].brandHint).toBe('Poco');
   });
 });
+

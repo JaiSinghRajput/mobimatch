@@ -35,6 +35,9 @@ logs/
 *.log
 coverage/
 .nyc_output/
+backups/
+*.sql
+*.sql.gz
 
 # OS / Editor
 .DS_Store
@@ -43,3 +46,4 @@ Thumbs.db
 .vscode/
 *.swp
 *.swo
+

@@ -97,3 +97,4 @@ export const catalogRoutes: FastifyPluginAsync = async (server: FastifyInstance)
     }
   );
 };
+

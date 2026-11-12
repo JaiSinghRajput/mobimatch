@@ -63,3 +63,4 @@ networks:
 volumes:
   postgres-data:
   redis-data:
+

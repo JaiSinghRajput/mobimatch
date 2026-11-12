@@ -251,3 +251,4 @@ export const authRoutes: FastifyPluginAsync = async (server: FastifyInstance) =>
     }
   );
 };
+

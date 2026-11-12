@@ -10,7 +10,8 @@ import {
   ActivityIndicator,
   Alert,
   StatusBar,
-} from 'expo-status-bar';
+  Platform,
+} from 'react-native';
 import { adminApi } from './src/api/client';
 import { colors, spacing, typography } from './src/theme';
 import {
@@ -112,7 +113,7 @@ export default function App() {
       if (err.code === 'ADMIN_ACCESS_DENIED') {
         setIsAllowlisted(false);
       } else {
-        alert(err.message || 'Failed to sign in');
+        Alert.alert('Sign In Error', err.message || 'Failed to sign in');
       }
     } finally {
       setLoading(false);
@@ -198,11 +199,11 @@ export default function App() {
   // Compatibility Parser Preview
   const handleParsePreview = async () => {
     if (!selectedCategoryId) {
-      alert('Please select a category first.');
+      Alert.alert('Category Required', 'Please select a category first.');
       return;
     }
     if (!bulkTextInput.trim()) {
-      alert('Please enter compatibility text.');
+      Alert.alert('Input Required', 'Please enter compatibility text.');
       return;
     }
 
@@ -217,7 +218,7 @@ export default function App() {
       });
       setConflictResolutions(initialChoices);
     } catch (err: any) {
-      alert(err.message || 'Failed to generate preview');
+      Alert.alert('Preview Error', err.message || 'Failed to generate preview');
     } finally {
       setLoading(false);
     }
@@ -230,7 +231,8 @@ export default function App() {
     // Check if unresolved conflicts remain
     for (const conflict of preview.conflicts) {
       if (!conflictResolutions[conflict.modelId]) {
-        alert(
+        Alert.alert(
+          'Unresolved Conflict',
           `Please choose 'Merge' or 'Cancel' for conflicting model ${conflict.modelName}.`
         );
         return;
@@ -256,11 +258,11 @@ export default function App() {
         conflictResolutions,
       });
 
-      alert('Compatibility groups published successfully in one atomic transaction!');
+      Alert.alert('Success', 'Compatibility groups published successfully in one atomic transaction!');
       setPreview(null);
       setBulkTextInput('');
     } catch (err: any) {
-      alert(err.message || 'Failed to publish compatibility group');
+      Alert.alert('Publish Error', err.message || 'Failed to publish compatibility group');
     } finally {
       setLoading(false);
     }
@@ -967,7 +969,7 @@ export default function App() {
                       await adminApi.removeAdmin(adm.id);
                       loadAdmins();
                     } catch (e: any) {
-                      alert(e.message || 'Cannot remove admin');
+                      Alert.alert('Error', e.message || 'Cannot remove admin');
                     }
                   }}
                 >
@@ -990,7 +992,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
-    paddingTop: StatusBar.currentHeight || 20,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 24) : 0,
   },
   centerCard: {
     flex: 1,
@@ -1137,3 +1139,4 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
 });
+

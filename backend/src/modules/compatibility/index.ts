@@ -36,3 +36,4 @@ export const compatibilityRoutes: FastifyPluginAsync = async (
     }
   );
 };
+

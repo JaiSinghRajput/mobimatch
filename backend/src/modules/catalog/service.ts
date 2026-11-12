@@ -336,3 +336,4 @@ export async function searchActiveModels(query: string, limit = 20) {
   await setCache(cacheKey, results, 120); // 2 mins search cache
   return results;
 }
+

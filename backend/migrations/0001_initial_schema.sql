@@ -149,3 +149,4 @@ CREATE TABLE IF NOT EXISTS model_requests (
 
 CREATE INDEX IF NOT EXISTS model_requests_user_id_idx ON model_requests(user_id);
 CREATE INDEX IF NOT EXISTS model_requests_status_idx ON model_requests(status);
+

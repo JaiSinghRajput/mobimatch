@@ -525,3 +525,4 @@ export const adminRoutes: FastifyPluginAsync = async (server: FastifyInstance) =
     });
   });
 };
+

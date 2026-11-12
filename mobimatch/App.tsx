@@ -9,7 +9,9 @@ import {
   TextInput,
   ActivityIndicator,
   StatusBar,
-} from 'expo-status-bar';
+  Alert,
+  Platform,
+} from 'react-native';
 import { userApi } from './src/api/client';
 import { colors, spacing, typography } from './src/theme';
 import {
@@ -105,7 +107,7 @@ export default function App() {
       const res = await userApi.googleAuth(mockToken);
       setCurrentUser(res.user);
     } catch (err: any) {
-      alert(err.message || 'Failed to sign in');
+      Alert.alert('Sign In Error', err.message || 'Failed to sign in');
     } finally {
       setLoading(false);
     }
@@ -114,11 +116,11 @@ export default function App() {
   // Complete Profile Handler
   const handleCompleteProfile = async () => {
     if (!phoneInput.trim() || !shopNameInput.trim() || !cityInput.trim()) {
-      alert('Please fill in all profile fields');
+      Alert.alert('Incomplete Profile', 'Please fill in all profile fields');
       return;
     }
     if (!termsAccepted || !privacyAccepted) {
-      alert('Please accept both Terms & Conditions and Privacy Policy');
+      Alert.alert('Legal Acceptance Required', 'Please accept both Terms & Conditions and Privacy Policy');
       return;
     }
 
@@ -133,7 +135,7 @@ export default function App() {
       });
       setCurrentUser(updated);
     } catch (err: any) {
-      alert(err.message || 'Failed to complete profile');
+      Alert.alert('Profile Error', err.message || 'Failed to complete profile');
     } finally {
       setLoading(false);
     }
@@ -166,7 +168,7 @@ export default function App() {
       setBrandModels(data);
       setCurrentScreen('brand_models');
     } catch (err: any) {
-      alert(err.message);
+      Alert.alert('Error', err.message);
     } finally {
       setLoading(false);
     }
@@ -187,7 +189,7 @@ export default function App() {
         setCompatResult(null);
         setCurrentScreen('no_compatibility');
       } else {
-        alert(err.message || 'Could not fetch compatibility');
+        Alert.alert('Notice', err.message || 'Could not fetch compatibility');
       }
     } finally {
       setLoading(false);
@@ -208,27 +210,35 @@ export default function App() {
     // Display temporary success notice
     setCopiedNotice(true);
     setTimeout(() => setCopiedNotice(false), 2500);
-    alert(`List Copied to Clipboard!\n\n${fullText}`);
+    Alert.alert('List Copied', `Compatible models list ready to copy:\n\n${fullText}`);
   };
 
   // Account Deletion
-  const handleDeleteAccount = async () => {
-    const confirmed = confirm(
-      'Are you sure you want to permanently delete your MobiMatch account? This action cannot be undone.'
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Delete Account',
+      'Are you sure you want to permanently delete your MobiMatch account? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete Permanently',
+          style: 'destructive',
+          onPress: async () => {
+            setLoading(true);
+            try {
+              await userApi.deleteAccount();
+              Alert.alert('Account Deleted', 'Your account and personal session data have been deleted.');
+              setCurrentUser(null);
+              setCurrentScreen('home');
+            } catch (err: any) {
+              Alert.alert('Error', err.message || 'Failed to delete account');
+            } finally {
+              setLoading(false);
+            }
+          },
+        },
+      ]
     );
-    if (!confirmed) return;
-
-    setLoading(true);
-    try {
-      await userApi.deleteAccount();
-      alert('Your account and personal session data have been deleted.');
-      setCurrentUser(null);
-      setCurrentScreen('home');
-    } catch (err: any) {
-      alert(err.message || 'Failed to delete account');
-    } finally {
-      setLoading(false);
-    }
   };
 
   // ==========================================
@@ -719,7 +729,7 @@ export default function App() {
                   modelId: selectedModel?.id || selectedModel?.modelId,
                   description: reportDescription,
                 });
-                alert('Thank you! Your report has been submitted to administrators.');
+                Alert.alert('Report Submitted', 'Thank you! Your report has been submitted to administrators.');
                 setCurrentScreen('home');
               }}
             >
@@ -789,7 +799,7 @@ export default function App() {
               style={[styles.button, { backgroundColor: colors.primary, marginTop: 12 }]}
               onPress={async () => {
                 if (!reqBrandName.trim() || !reqModelName.trim()) {
-                  alert('Brand name and model name are required.');
+                  Alert.alert('Required Fields', 'Brand name and model name are required.');
                   return;
                 }
                 await userApi.submitModelRequest({
@@ -798,7 +808,7 @@ export default function App() {
                   modelNumber: reqModelNumber.trim() || undefined,
                   notes: reqNotes.trim() || undefined,
                 });
-                alert('Model request submitted for administrator review.');
+                Alert.alert('Submitted', 'Model request submitted for administrator review.');
                 setReqBrandName('');
                 setReqModelName('');
                 setCurrentScreen('home');
@@ -889,7 +899,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
-    paddingTop: StatusBar.currentHeight || 20,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 24) : 0,
   },
   centerCard: {
     flex: 1,
@@ -1033,3 +1043,4 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primaryLight,
   },
 });
+

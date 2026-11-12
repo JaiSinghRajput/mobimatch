@@ -336,3 +336,4 @@ export const AppConfigResponseSchema = z.object({
   accountDeletionUrl: z.string(),
 });
 export type AppConfigResponse = z.infer<typeof AppConfigResponseSchema>;
+

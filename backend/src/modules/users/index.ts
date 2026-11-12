@@ -146,3 +146,4 @@ export const userRoutes: FastifyPluginAsync = async (server: FastifyInstance) =>
     });
   });
 };
+

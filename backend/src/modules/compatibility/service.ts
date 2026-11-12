@@ -530,3 +530,4 @@ export async function publishCompatibilityTransaction(
     client.release();
   }
 }
+
