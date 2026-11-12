@@ -4,7 +4,8 @@ import rateLimit from '@fastify/rate-limit';
 import jwt from '@fastify/jwt';
 import { v4 as uuidv4 } from 'uuid';
 import { config } from './config';
-import { runMigrations } from './db';
+import { runMigrations, closeDb } from './db';
+import { closeCache } from './cache';
 import { healthRoutes } from './modules/health';
 import { authRoutes } from './modules/auth';
 import { userRoutes } from './modules/users';
@@ -76,6 +77,18 @@ export async function startServer() {
       host: config.host,
     });
     console.log(`MobiMatch Backend running at http://${config.host}:${config.port}`);
+
+    // Graceful Shutdown
+    const shutdown = async () => {
+      console.log('Shutting down MobiMatch Backend server gracefully...');
+      await server.close();
+      await closeDb();
+      await closeCache();
+      process.exit(0);
+    };
+
+    process.on('SIGTERM', shutdown);
+    process.on('SIGINT', shutdown);
   } catch (err) {
     server.log.error(err);
     process.exit(1);
