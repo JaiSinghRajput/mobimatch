@@ -34,6 +34,7 @@ These are the working decisions for the coding agent. Items marked OPEN require 
 | D-028 | ₹8,000 development fee; keep MVP narrow | Confirmed |
 | D-029 | Dev/Test Mock Auth: mock tokens when DEV_MOCK_AUTH=true; official Google ID verification in production | Confirmed & Implemented |
 | D-030 | Public Account Deletion web page hosted at /account-deletion for Google Play compliance | Confirmed & Implemented |
+| D-031 | Google OAuth Architecture: Web Client ID audience verification server-side; no client secrets in mobile clients or backend (Play integrity via Android package name + keystore SHA-1) | Confirmed & Implemented |
 
 ## Important clarification: Android 10 support vs Play target API
 
