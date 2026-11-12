@@ -11,11 +11,11 @@
     "@mobimatch/api-contracts": "*",
     "expo": "~58.0.0",
     "expo-status-bar": "~58.0.0",
-    "react": "18.3.1",
-    "react-native": "0.76.1"
+    "react": "19.3.0",
+    "react-native": "0.88.1"
   },
   "devDependencies": {
-    "@types/react": "~18.3.12",
+    "@types/react": "~19.3.0",
     "typescript": "^5.6.3"
   }
 }

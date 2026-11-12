@@ -107,3 +107,4 @@ When completing the Google Play Console Data Safety questionnaire for `mobimatch
 2. **Direct Signed APK**:
    - Deliver the signed APK directly.
    - Disclose to administrators that Android displays its standard "install unknown apps" prompt. App code does not attempt to bypass this.
+

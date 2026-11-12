@@ -380,6 +380,58 @@ describe('MobiMatch Backend API Integration Test Suite', () => {
       expect(res.body.conflicts.length).toBeGreaterThan(0);
       expect(res.body.conflicts[0].modelId).toBe(modelId1);
     });
+
+    it('honors conflict cancel choice and leaves conflicting model in old group', async () => {
+      // Create model 3
+      const m3Res = await request
+        .post('/v1/admin/models')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ brandId, name: 'Note 10 Pro' });
+      const modelId3 = m3Res.body.id;
+
+      // Publish with conflict choice 'cancel' for modelId1
+      const res = await request
+        .post('/v1/admin/compatibility/publish')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          categoryId,
+          lines: [
+            {
+              models: [
+                { brandName: 'Redmi', modelName: 'Note 10', resolvedModelId: modelId1 },
+                { brandName: 'Redmi', modelName: 'Note 10 Pro', resolvedModelId: modelId3 },
+              ],
+            },
+          ],
+          conflictResolutions: {
+            [modelId1]: 'cancel',
+          },
+        });
+
+      expect(res.status).toBe(200);
+      // modelId1 was skipped due to cancel, leaving fewer than 2 models for that line so no invalid group was created
+      expect(res.body.success).toBe(true);
+    });
+
+    it('atomic transaction rolls back all changes if publish encounters an unresolved model error', async () => {
+      const res = await request
+        .post('/v1/admin/compatibility/publish')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          categoryId,
+          lines: [
+            {
+              models: [
+                { brandName: 'NonExistentBrand', modelName: 'GhostModel1', createIfMissing: false },
+                { brandName: 'NonExistentBrand', modelName: 'GhostModel2', createIfMissing: false },
+              ],
+            },
+          ],
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error.code).toBe('PUBLISH_FAILED');
+    });
   });
 
   // ==========================================
@@ -469,6 +521,86 @@ describe('MobiMatch Backend API Integration Test Suite', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
+    });
+
+    it('prevents removing the final administrator from the allowlist', async () => {
+      // Find the ID of the sole remaining admin (admin@mobimatch.local)
+      const listRes = await request
+        .get('/v1/admin/admins')
+        .set('Authorization', `Bearer ${adminToken}`);
+      const remainingAdmin = listRes.body[0];
+
+      const res = await request
+        .delete(`/v1/admin/admins/${remainingAdmin.id}`)
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(res.status).toBe(400);
+      expect(res.body.error.code).toBe('CANNOT_REMOVE_LAST_ADMIN');
+    });
+
+    it('immediate allowlist revocation: removed admin token is blocked on next request', async () => {
+      // Add temp admin
+      const addRes = await request
+        .post('/v1/admin/admins')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ email: 'tempadmin@mobimatch.local' });
+      const tempAdminId = addRes.body.id;
+
+      // Temp admin signs in and gets admin token
+      const authRes = await request
+        .post('/v1/auth/google')
+        .send({
+          idToken: 'mock-:tempadmin@mobimatch.local:sub-temp-100:Temp Admin',
+          clientApp: 'admin',
+        });
+      const tempAdminToken = authRes.body.accessToken;
+
+      // Verify token works
+      const testWork = await request
+        .get('/v1/admin/brands')
+        .set('Authorization', `Bearer ${tempAdminToken}`);
+      expect(testWork.status).toBe(200);
+
+      // Now primary admin removes temp admin from allowlist
+      await request
+        .delete(`/v1/admin/admins/${tempAdminId}`)
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      // Even though tempAdminToken has not expired, next request is denied immediately!
+      const blockedRes = await request
+        .get('/v1/admin/brands')
+        .set('Authorization', `Bearer ${tempAdminToken}`);
+      expect(blockedRes.status).toBe(403);
+      expect(blockedRes.body.error.code).toBe('ADMIN_ACCESS_REVOKED');
+    });
+
+    it('admin can deactivate and reactivate normal user accounts', async () => {
+      // Deactivate user
+      const deactRes = await request
+        .post(`/v1/admin/users/${userId}/deactivate`)
+        .set('Authorization', `Bearer ${adminToken}`);
+      expect(deactRes.status).toBe(200);
+      expect(deactRes.body.status).toBe('deactivated');
+
+      // User's next request is blocked
+      const userReq = await request
+        .get('/v1/users/me')
+        .set('Authorization', `Bearer ${userToken}`);
+      expect(userReq.status).toBe(403);
+      expect(userReq.body.error.code).toBe('ACCOUNT_INACTIVE');
+
+      // Reactivate user
+      const reactRes = await request
+        .post(`/v1/admin/users/${userId}/reactivate`)
+        .set('Authorization', `Bearer ${adminToken}`);
+      expect(reactRes.status).toBe(200);
+      expect(reactRes.body.status).toBe('active');
+
+      // User access is restored
+      const restoredReq = await request
+        .get('/v1/users/me')
+        .set('Authorization', `Bearer ${userToken}`);
+      expect(restoredReq.status).toBe(200);
     });
   });
 

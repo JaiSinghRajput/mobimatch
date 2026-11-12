@@ -143,3 +143,4 @@ curl https://api.mobimatch.example.com/health/ready
 curl https://api.mobimatch.example.com/v1/app-config
 ```
 Expected output: HTTP 200 with JSON status `ready`.
+
