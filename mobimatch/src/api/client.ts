@@ -34,10 +34,13 @@ class UserApiClient {
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
     const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
       Accept: 'application/json',
       ...((options.headers as Record<string, string>) || {}),
     };
+
+    if (options.body) {
+      headers['Content-Type'] = 'application/json';
+    }
 
     if (this.accessToken) {
       headers['Authorization'] = `Bearer ${this.accessToken}`;

@@ -3,7 +3,6 @@ import {
   StyleSheet,
   Text,
   View,
-  SafeAreaView,
   ScrollView,
   TouchableOpacity,
   TextInput,
@@ -12,6 +11,7 @@ import {
   Alert,
   Platform,
 } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { userApi } from './src/api/client';
 import { colors, spacing, typography } from './src/theme';
 import {
@@ -32,7 +32,7 @@ type Screen =
   | 'request_model'
   | 'profile';
 
-export default function App() {
+function UserAppContent() {
   const [currentUser, setCurrentUser] = useState<any | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [appConfig, setAppConfig] = useState<AppConfigResponse | null>(null);
@@ -895,11 +895,18 @@ export default function App() {
   );
 }
 
+export default function App() {
+  return (
+    <SafeAreaProvider>
+      <UserAppContent />
+    </SafeAreaProvider>
+  );
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
-    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 24) : 0,
   },
   centerCard: {
     flex: 1,

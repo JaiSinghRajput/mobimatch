@@ -22,6 +22,23 @@ export function buildServer(): FastifyInstance {
     bodyLimit: 1048576, // 1MB body limit for safety
   });
 
+  // Support empty JSON bodies gracefully without throwing FST_ERR_CTP_EMPTY_JSON_BODY
+  server.addContentTypeParser(
+    'application/json',
+    { parseAs: 'string' },
+    (_req, body, defaultDone) => {
+      if (!body || (typeof body === 'string' && body.trim() === '')) {
+        defaultDone(null, {});
+        return;
+      }
+      try {
+        defaultDone(null, JSON.parse(body));
+      } catch (err) {
+        defaultDone(err as Error, undefined);
+      }
+    }
+  );
+
   // Plugins
   server.register(cors, {
     origin: true,
