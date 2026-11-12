@@ -35,6 +35,7 @@ These are the working decisions for the coding agent. Items marked OPEN require 
 | D-029 | Dev/Test Mock Auth: mock tokens when DEV_MOCK_AUTH=true; official Google ID verification in production | Confirmed & Implemented |
 | D-030 | Public Account Deletion web page hosted at /account-deletion for Google Play compliance | Confirmed & Implemented |
 | D-031 | Google OAuth Architecture: Web Client ID audience verification server-side; no client secrets in mobile clients or backend (Play integrity via Android package name + keystore SHA-1) | Confirmed & Implemented |
+| D-032 | Branding & Attribution: User app displays "Mobimatch by jhankar mobile" below search bar and persistent footer "crafted by laughingdev" with clickable URL to https://laughingdev.com | Confirmed & Implemented |
 
 ## Important clarification: Android 10 support vs Play target API
 
