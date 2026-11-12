@@ -30,7 +30,7 @@ These are the working decisions for the coding agent. Items marked OPEN require 
 | D-024 | No share button; Copy List only | Confirmed |
 | D-025 | Result screen Report Issue action | OPEN; no answer received |
 | D-026 | Basic restore of last compatibility publish | Feasibility gate: Atomic transactional rollback implemented; snapshot history deferred to Phase 2 |
-| D-027 | Stack: React Native/Expo + Node/TypeScript/Fastify + PostgreSQL (Drizzle) + Redis | Confirmed & Implemented |
+| D-027 | Stack: React Native/Expo SDK 58 + Node/TypeScript/Fastify + PostgreSQL 18 (Drizzle) + Redis | Confirmed & Implemented |
 | D-028 | ₹8,000 development fee; keep MVP narrow | Confirmed |
 | D-029 | Dev/Test Mock Auth: mock tokens when DEV_MOCK_AUTH=true; official Google ID verification in production | Confirmed & Implemented |
 | D-030 | Public Account Deletion web page hosted at /account-deletion for Google Play compliance | Confirmed & Implemented |
