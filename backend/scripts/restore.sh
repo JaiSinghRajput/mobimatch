@@ -26,3 +26,4 @@ else
 fi
 
 echo "Database restore completed successfully."
+

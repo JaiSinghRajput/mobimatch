@@ -22,3 +22,4 @@ if ($LASTEXITCODE -eq 0) {
 } else {
     Write-Error "Backup failed with exit code $LASTEXITCODE"
 }
+

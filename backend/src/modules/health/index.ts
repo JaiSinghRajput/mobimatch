@@ -67,4 +67,28 @@ export const healthRoutes: FastifyPluginAsync = async (server: FastifyInstance) 
     }
     return reply.status(404).send('Not Found');
   });
+
+  // Public Privacy Policy Page (Google Play Compliance)
+  server.get('/privacy', async (req, reply) => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const htmlPath = path.resolve(__dirname, '../../../public/privacy-policy.html');
+    if (fs.existsSync(htmlPath)) {
+      const html = fs.readFileSync(htmlPath, 'utf8');
+      return reply.type('text/html').send(html);
+    }
+    return reply.status(404).send('Not Found');
+  });
+
+  // Public Terms & Conditions Page
+  server.get('/terms', async (req, reply) => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const htmlPath = path.resolve(__dirname, '../../../public/terms.html');
+    if (fs.existsSync(htmlPath)) {
+      const html = fs.readFileSync(htmlPath, 'utf8');
+      return reply.type('text/html').send(html);
+    }
+    return reply.status(404).send('Not Found');
+  });
 };

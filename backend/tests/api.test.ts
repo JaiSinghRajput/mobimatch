@@ -60,6 +60,20 @@ describe('MobiMatch Backend API Integration Test Suite', () => {
       expect(res.headers['content-type']).toContain('text/html');
       expect(res.text).toContain('MobiMatch Account & Data Deletion');
     });
+
+    it('GET /privacy returns public Privacy Policy HTML page', async () => {
+      const res = await request.get('/privacy');
+      expect(res.status).toBe(200);
+      expect(res.headers['content-type']).toContain('text/html');
+      expect(res.text).toContain('MobiMatch Privacy Policy');
+    });
+
+    it('GET /terms returns public Terms & Conditions HTML page', async () => {
+      const res = await request.get('/terms');
+      expect(res.status).toBe(200);
+      expect(res.headers['content-type']).toContain('text/html');
+      expect(res.text).toContain('MobiMatch Terms and Conditions');
+    });
   });
 
   // ==========================================

@@ -26,3 +26,4 @@ echo "[$(date)] Backup completed: ${BACKUP_FILE}"
 echo "[$(date)] Pruning backups older than 7 days..."
 find "${BACKUP_DIR}" -type f -name "mobimatch_*.sql.gz" -mtime +7 -exec rm -f {} \;
 echo "[$(date)] Backup rotation complete."
+
