@@ -5,8 +5,6 @@ import {
   AppConfigResponse,
 } from '@mobimatch/api-contracts';
 
-// For physical devices running Expo Go, use your PC's LAN IP (192.168.1.10) or configure EXPO_PUBLIC_API_URL.
-// For Android emulator, you can use 10.0.2.2.
 const DEFAULT_API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.10:3000';
 
 class AdminApiClient {
@@ -109,7 +107,7 @@ class AdminApiClient {
       await this.request('/v1/auth/logout', {
         method: 'POST',
         body: JSON.stringify({ refreshToken: this.refreshToken }),
-      }).catch(() => {});
+      }).catch(() => { });
     }
     this.setTokens(null, null);
   }
