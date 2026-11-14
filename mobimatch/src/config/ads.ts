@@ -16,3 +16,4 @@ export const ADMOB_CONFIG = {
   // Enable/disable ads globally
   enabled: true,
 };
+
