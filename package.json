@@ -11,7 +11,6 @@
   ],
   "scripts": {
     "build": "npm run --workspace=@mobimatch/api-contracts build && npm run --workspace=mobimatch-backend build",
-    "postinstall": "npm run --workspace=@mobimatch/api-contracts build && npm run --workspace=mobimatch-backend build",
     "start": "npm run --workspace=mobimatch-backend start",
     "backend:start": "npm run --workspace=mobimatch-backend start",
     "backend:build": "npm run --workspace=@mobimatch/api-contracts build && npm run --workspace=mobimatch-backend build",

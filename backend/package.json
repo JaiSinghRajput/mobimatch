@@ -6,7 +6,6 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc && node -e \"const fs=require('fs'); if(fs.existsSync('migrations')){fs.cpSync('migrations','dist/migrations',{recursive:true,errorOnExist:false});}\"",
-    "postinstall": "tsc || true",
     "start": "node dist/server.js",
     "db:migrate": "node -e \"require('./dist/db').runMigrations().then(()=>process.exit(0)).catch(e=>{console.error(e);process.exit(1);})\"",
     "db:seed": "tsx src/db/seed.ts",
