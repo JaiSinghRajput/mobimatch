@@ -25,6 +25,8 @@ import {
   createModel,
   updateModel,
   setModelActiveStatus,
+  autoDeduplicateBrands,
+  autoDeduplicateCategories,
 } from '../catalog/service';
 import {
   generateParsePreview,
@@ -85,8 +87,22 @@ export const adminRoutes: FastifyPluginAsync = async (server: FastifyInstance) =
         error: { code: 'INVALID_NAME', message: 'Brand name is required', requestId: req.id },
       });
     }
-    const brand = await createBrand(req.body.name);
-    return reply.status(201).send(brand);
+    try {
+      const brand = await createBrand(req.body.name);
+      return reply.status(201).send(brand);
+    } catch (err: any) {
+      if (err.statusCode === 409 || err.code === 'BRAND_ALREADY_EXISTS') {
+        return reply.status(409).send({
+          error: {
+            code: 'BRAND_ALREADY_EXISTS',
+            message: err.message,
+            existingBrand: err.existingBrand,
+            requestId: req.id,
+          },
+        });
+      }
+      throw err;
+    }
   });
 
   server.patch<{ Params: { id: string }; Body: { name: string } }>(
@@ -97,8 +113,21 @@ export const adminRoutes: FastifyPluginAsync = async (server: FastifyInstance) =
           error: { code: 'INVALID_NAME', message: 'Brand name is required', requestId: req.id },
         });
       }
-      const updated = await updateBrand(req.params.id, req.body.name);
-      return reply.status(200).send(updated);
+      try {
+        const updated = await updateBrand(req.params.id, req.body.name);
+        return reply.status(200).send(updated);
+      } catch (err: any) {
+        if (err.statusCode === 409 || err.code === 'BRAND_ALREADY_EXISTS') {
+          return reply.status(409).send({
+            error: {
+              code: 'BRAND_ALREADY_EXISTS',
+              message: err.message,
+              requestId: req.id,
+            },
+          });
+        }
+        throw err;
+      }
     }
   );
 
@@ -118,6 +147,12 @@ export const adminRoutes: FastifyPluginAsync = async (server: FastifyInstance) =
     }
   );
 
+  // Auto-deduplicate duplicate brands and merge their models
+  server.post('/v1/admin/brands/deduplicate', async (req, reply) => {
+    const result = await autoDeduplicateBrands();
+    return reply.status(200).send(result);
+  });
+
   // ==========================================
   // Category Management
   // ==========================================
@@ -132,8 +167,22 @@ export const adminRoutes: FastifyPluginAsync = async (server: FastifyInstance) =
         error: { code: 'INVALID_NAME', message: 'Category name is required', requestId: req.id },
       });
     }
-    const category = await createCategory(req.body.name);
-    return reply.status(201).send(category);
+    try {
+      const category = await createCategory(req.body.name);
+      return reply.status(201).send(category);
+    } catch (err: any) {
+      if (err.statusCode === 409 || err.code === 'CATEGORY_ALREADY_EXISTS') {
+        return reply.status(409).send({
+          error: {
+            code: 'CATEGORY_ALREADY_EXISTS',
+            message: err.message,
+            existingCategory: err.existingCategory,
+            requestId: req.id,
+          },
+        });
+      }
+      throw err;
+    }
   });
 
   server.patch<{ Params: { id: string }; Body: { name: string } }>(
@@ -144,8 +193,21 @@ export const adminRoutes: FastifyPluginAsync = async (server: FastifyInstance) =
           error: { code: 'INVALID_NAME', message: 'Category name is required', requestId: req.id },
         });
       }
-      const updated = await updateCategory(req.params.id, req.body.name);
-      return reply.status(200).send(updated);
+      try {
+        const updated = await updateCategory(req.params.id, req.body.name);
+        return reply.status(200).send(updated);
+      } catch (err: any) {
+        if (err.statusCode === 409 || err.code === 'CATEGORY_ALREADY_EXISTS') {
+          return reply.status(409).send({
+            error: {
+              code: 'CATEGORY_ALREADY_EXISTS',
+              message: err.message,
+              requestId: req.id,
+            },
+          });
+        }
+        throw err;
+      }
     }
   );
 
@@ -164,6 +226,12 @@ export const adminRoutes: FastifyPluginAsync = async (server: FastifyInstance) =
       return reply.status(200).send(updated);
     }
   );
+
+  // Auto-deduplicate duplicate categories
+  server.post('/v1/admin/categories/deduplicate', async (req, reply) => {
+    const result = await autoDeduplicateCategories();
+    return reply.status(200).send(result);
+  });
 
   // ==========================================
   // Model Management
@@ -186,16 +254,43 @@ export const adminRoutes: FastifyPluginAsync = async (server: FastifyInstance) =
         },
       });
     }
-    const model = await createModel(brandId, name, modelNumber);
-    return reply.status(201).send(model);
+    try {
+      const model = await createModel(brandId, name, modelNumber);
+      return reply.status(201).send(model);
+    } catch (err: any) {
+      if (err.statusCode === 409 || err.code === 'MODEL_ALREADY_EXISTS') {
+        return reply.status(409).send({
+          error: {
+            code: 'MODEL_ALREADY_EXISTS',
+            message: err.message,
+            existingModel: err.existingModel,
+            requestId: req.id,
+          },
+        });
+      }
+      throw err;
+    }
   });
 
   server.patch<{
     Params: { id: string };
     Body: { brandId?: string; name?: string; modelNumber?: string | null };
   }>('/v1/admin/models/:id', async (req, reply) => {
-    const updated = await updateModel(req.params.id, req.body);
-    return reply.status(200).send(updated);
+    try {
+      const updated = await updateModel(req.params.id, req.body);
+      return reply.status(200).send(updated);
+    } catch (err: any) {
+      if (err.statusCode === 409 || err.code === 'MODEL_ALREADY_EXISTS') {
+        return reply.status(409).send({
+          error: {
+            code: 'MODEL_ALREADY_EXISTS',
+            message: err.message,
+            requestId: req.id,
+          },
+        });
+      }
+      throw err;
+    }
   });
 
   server.post<{ Params: { id: string } }>(

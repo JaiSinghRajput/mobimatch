@@ -70,7 +70,7 @@ CREATE TABLE IF NOT EXISTS brands (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deactivated_at TIMESTAMPTZ
 );
-CREATE INDEX IF NOT EXISTS brands_normalized_name_idx ON brands(normalized_name);
+CREATE UNIQUE INDEX IF NOT EXISTS brands_normalized_name_idx ON brands(normalized_name);
 
 -- 5. Mobile Models
 CREATE TABLE IF NOT EXISTS mobile_models (
@@ -85,7 +85,7 @@ CREATE TABLE IF NOT EXISTS mobile_models (
     deactivated_at TIMESTAMPTZ
 );
 CREATE INDEX IF NOT EXISTS mobile_models_brand_id_idx ON mobile_models(brand_id);
-CREATE INDEX IF NOT EXISTS mobile_models_brand_norm_idx ON mobile_models(brand_id, normalized_name);
+CREATE UNIQUE INDEX IF NOT EXISTS mobile_models_brand_norm_idx ON mobile_models(brand_id, normalized_name);
 CREATE INDEX IF NOT EXISTS mobile_models_number_idx ON mobile_models(model_number);
 
 -- 6. Spare Part Categories
@@ -271,6 +271,81 @@ export async function runMigrations(): Promise<void> {
     const sqlContent = getMigrationSql();
     await client.query(sqlContent);
     console.log('Database migration 0001_initial_schema executed successfully.');
+
+    // 1. Conflict Resolution & Auto-Deduplication: Brands
+    // Merge any duplicate brands created before unique constraint was enforced
+    await client.query(`
+      DO $$
+      DECLARE
+          r RECORD;
+          primary_id UUID;
+          dup_id UUID;
+      BEGIN
+          FOR r IN (
+              SELECT normalized_name, COUNT(*) 
+              FROM brands 
+              GROUP BY normalized_name 
+              HAVING COUNT(*) > 1
+          ) LOOP
+              SELECT id INTO primary_id 
+              FROM brands 
+              WHERE normalized_name = r.normalized_name 
+              ORDER BY is_active DESC, created_at ASC 
+              LIMIT 1;
+
+              FOR dup_id IN (
+                  SELECT id 
+                  FROM brands 
+                  WHERE normalized_name = r.normalized_name AND id != primary_id
+              ) LOOP
+                  UPDATE mobile_models SET brand_id = primary_id WHERE brand_id = dup_id;
+                  DELETE FROM brands WHERE id = dup_id;
+              END LOOP;
+          END LOOP;
+      END $$;
+    `);
+
+    // Ensure Unique Index on brands(normalized_name)
+    await client.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS brands_normalized_name_idx ON brands(normalized_name);
+    `);
+
+    // 2. Conflict Resolution & Auto-Deduplication: Mobile Models per brand
+    await client.query(`
+      DO $$
+      DECLARE
+          r RECORD;
+          primary_id UUID;
+          dup_id UUID;
+      BEGIN
+          FOR r IN (
+              SELECT brand_id, normalized_name, COUNT(*) 
+              FROM mobile_models 
+              GROUP BY brand_id, normalized_name 
+              HAVING COUNT(*) > 1
+          ) LOOP
+              SELECT id INTO primary_id 
+              FROM mobile_models 
+              WHERE brand_id = r.brand_id AND normalized_name = r.normalized_name 
+              ORDER BY is_active DESC, created_at ASC 
+              LIMIT 1;
+
+              FOR dup_id IN (
+                  SELECT id 
+                  FROM mobile_models 
+                  WHERE brand_id = r.brand_id AND normalized_name = r.normalized_name AND id != primary_id
+              ) LOOP
+                  UPDATE compatibility_group_members SET model_id = primary_id WHERE model_id = dup_id;
+                  DELETE FROM mobile_models WHERE id = dup_id;
+              END LOOP;
+          END LOOP;
+      END $$;
+    `);
+
+    // Ensure Unique Index on mobile_models(brand_id, normalized_name)
+    await client.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS mobile_models_brand_norm_idx ON mobile_models(brand_id, normalized_name);
+    `);
 
     // Seed INITIAL_ADMIN_EMAIL if configured and not present
     if (config.initialAdminEmail) {

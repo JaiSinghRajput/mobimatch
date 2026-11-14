@@ -254,6 +254,41 @@ describe('MobiMatch Backend API Integration Test Suite', () => {
       modelId2 = modelRes2.body.id;
     });
 
+    it('rejects creating duplicate brand with 409 BRAND_ALREADY_EXISTS', async () => {
+      const dupRes = await request
+        .post('/v1/admin/brands')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ name: '  redmi  ' }); // Case and whitespace insensitive check
+      expect(dupRes.status).toBe(409);
+      expect(dupRes.body.error.code).toBe('BRAND_ALREADY_EXISTS');
+    });
+
+    it('rejects creating duplicate category with 409 CATEGORY_ALREADY_EXISTS', async () => {
+      const dupRes = await request
+        .post('/v1/admin/categories')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ name: 'display / lcd' });
+      expect(dupRes.status).toBe(409);
+      expect(dupRes.body.error.code).toBe('CATEGORY_ALREADY_EXISTS');
+    });
+
+    it('rejects creating duplicate model under same brand with 409 MODEL_ALREADY_EXISTS', async () => {
+      const dupRes = await request
+        .post('/v1/admin/models')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ brandId, name: 'note 10' });
+      expect(dupRes.status).toBe(409);
+      expect(dupRes.body.error.code).toBe('MODEL_ALREADY_EXISTS');
+    });
+
+    it('POST /v1/admin/brands/deduplicate executes cleanly', async () => {
+      const dedupRes = await request
+        .post('/v1/admin/brands/deduplicate')
+        .set('Authorization', `Bearer ${adminToken}`);
+      expect(dedupRes.status).toBe(200);
+      expect(dedupRes.body.success).toBe(true);
+    });
+
     it('GET /v1/brands returns active brands alphabetically', async () => {
       const res = await request.get('/v1/brands');
       expect(res.status).toBe(200);

@@ -58,7 +58,7 @@ CREATE TABLE IF NOT EXISTS brands (
     deactivated_at TIMESTAMPTZ
 );
 
-CREATE INDEX IF NOT EXISTS brands_normalized_name_idx ON brands(normalized_name);
+CREATE UNIQUE INDEX IF NOT EXISTS brands_normalized_name_idx ON brands(normalized_name);
 
 -- 5. Mobile Models
 CREATE TABLE IF NOT EXISTS mobile_models (
@@ -74,7 +74,7 @@ CREATE TABLE IF NOT EXISTS mobile_models (
 );
 
 CREATE INDEX IF NOT EXISTS mobile_models_brand_id_idx ON mobile_models(brand_id);
-CREATE INDEX IF NOT EXISTS mobile_models_brand_norm_idx ON mobile_models(brand_id, normalized_name);
+CREATE UNIQUE INDEX IF NOT EXISTS mobile_models_brand_norm_idx ON mobile_models(brand_id, normalized_name);
 CREATE INDEX IF NOT EXISTS mobile_models_number_idx ON mobile_models(model_number);
 
 -- 6. Spare Part Categories

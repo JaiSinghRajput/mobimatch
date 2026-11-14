@@ -247,6 +247,22 @@ function AdminAppContent() {
       Alert.alert('Category Name Required', 'Please enter a name for the new category.');
       return;
     }
+
+    // Check if category already exists in memory
+    const existingCat = categories.find(
+      (c) => c.name.trim().toLowerCase() === inlineCategoryName.trim().toLowerCase()
+    );
+    if (existingCat) {
+      setSelectedCategoryId(existingCat.id);
+      setInlineCategoryName('');
+      setShowInlineCategoryForm(false);
+      Alert.alert(
+        'Category Already Exists ✓',
+        `"${existingCat.name}" already exists in the catalog and has been selected for you!`
+      );
+      return;
+    }
+
     setLoading(true);
     try {
       const created = await adminApi.createCategory(inlineCategoryName.trim());
@@ -273,15 +289,59 @@ function AdminAppContent() {
     try {
       // If brand doesn't exist and user typed a new brand name
       if (!targetBrandId && inlineNewBrandName.trim()) {
-        const newBrand = await adminApi.createBrand(inlineNewBrandName.trim());
-        targetBrandId = newBrand.id;
-        await loadBrands();
+        // Resolve conflict: check if brand already exists
+        const existingBrand = brands.find(
+          (b) => b.name.trim().toLowerCase() === inlineNewBrandName.trim().toLowerCase()
+        );
+        if (existingBrand) {
+          targetBrandId = existingBrand.id;
+        } else {
+          const newBrand = await adminApi.createBrand(inlineNewBrandName.trim());
+          targetBrandId = newBrand.id;
+          await loadBrands();
+        }
       } else if (!targetBrandId && brands.length > 0) {
         targetBrandId = brands[0].id;
       }
 
       if (!targetBrandId) {
         Alert.alert('Brand Required', 'Please choose an existing brand or type a new one.');
+        setLoading(false);
+        return;
+      }
+
+      // Resolve conflict: check if model already exists under this brand
+      const existingModel = models.find(
+        (m) =>
+          m.brandId === targetBrandId &&
+          m.name.trim().toLowerCase() === inlineModelName.trim().toLowerCase()
+      );
+
+      if (existingModel) {
+        if (addToGroup) {
+          if (!manualSelectedModels.some((sm) => sm.id === existingModel.id)) {
+            setManualSelectedModels((prev) => [...prev, existingModel]);
+          }
+          Alert.alert(
+            'Model Already Exists ✓',
+            `"${existingModel.brandName || ''} ${existingModel.name}" already exists and has been staged into the group!`
+          );
+        } else {
+          setBulkTextInput((prev) => {
+            const trimmed = prev.trim();
+            if (!trimmed) return existingModel.name;
+            if (trimmed.endsWith('=')) return `${prev} ${existingModel.name} `;
+            return `${prev} = ${existingModel.name}`;
+          });
+          Alert.alert(
+            'Model Already Exists ✓',
+            `"${existingModel.brandName || ''} ${existingModel.name}" already exists and has been inserted into the parser!`
+          );
+        }
+        setInlineModelName('');
+        setInlineModelNumber('');
+        setInlineNewBrandName('');
+        setShowInlineModelForm(false);
         setLoading(false);
         return;
       }
@@ -1460,250 +1520,453 @@ function AdminAppContent() {
         )}
 
         {/* 2. Brands Tab */}
-        {activeTab === 'brands' && (
-          <View>
-            <Text style={[typography.h3, { marginBottom: 8 }]}>Add New Brand</Text>
-            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
-              <TextInput
-                style={[styles.input, { flex: 1 }]}
-                placeholder="Brand Name (e.g. Motorola)"
-                value={newBrandName}
-                onChangeText={setNewBrandName}
-              />
-              <TouchableOpacity
-                style={[styles.smallBtn, { backgroundColor: colors.primary, height: 44 }]}
-                onPress={async () => {
-                  if (!newBrandName.trim()) return;
-                  try {
-                    await adminApi.createBrand(newBrandName.trim());
-                    setNewBrandName('');
-                    loadBrands();
-                  } catch (e: any) {
-                    Alert.alert('Error', e.message || 'Cannot create brand');
-                  }
-                }}
-              >
-                <Text style={{ color: '#fff', fontWeight: '600' }}>Add</Text>
-              </TouchableOpacity>
-            </View>
+        {activeTab === 'brands' && (() => {
+          const brandNormCounts: Record<string, number> = {};
+          brands.forEach((b) => {
+            const norm = b.name.trim().toLowerCase();
+            brandNormCounts[norm] = (brandNormCounts[norm] || 0) + 1;
+          });
+          const duplicateBrandCount = brands.filter(
+            (b) => brandNormCounts[b.name.trim().toLowerCase()] > 1
+          ).length;
+          const isDuplicateInput =
+            newBrandName.trim().length > 0 &&
+            brands.some((b) => b.name.trim().toLowerCase() === newBrandName.trim().toLowerCase());
 
-            <Text style={[typography.h3, { marginBottom: 12 }]}>All Brands</Text>
-            {brands.map((b) => (
-              <View key={b.id} style={styles.listItem}>
-                <View>
-                  <Text style={{ fontWeight: '600', color: colors.textPrimary }}>
-                    {b.name}
-                  </Text>
-                  <Text style={typography.caption}>
-                    Status: {b.isActive ? 'Active' : 'Deactivated'}
-                  </Text>
+          return (
+            <View>
+              <Text style={[typography.h3, { marginBottom: 4 }]}>Brands Catalog ({brands.length})</Text>
+              <Text style={[typography.bodySecondary, { marginBottom: 12 }]}>
+                Device manufacturers and brand names for mobile compatibility.
+              </Text>
+
+              {/* Conflict Resolution Banner when Duplicates Exist */}
+              {duplicateBrandCount > 0 && (
+                <View style={styles.duplicateConflictBanner}>
+                  <View style={{ flex: 1, marginRight: 10 }}>
+                    <Text style={styles.duplicateConflictTitle}>
+                      ⚠️ {duplicateBrandCount} Duplicate Brand Entries Detected!
+                    </Text>
+                    <Text style={styles.duplicateConflictDesc}>
+                      Your database currently contains brands with the exact same name. Tap 'Auto-Merge' to combine their models into one clean brand and eliminate conflicts.
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.mergeActionBtn}
+                    onPress={async () => {
+                      try {
+                        setLoading(true);
+                        const res = await adminApi.deduplicateBrands();
+                        Alert.alert(
+                          'Conflict Resolution Complete ✓',
+                          `Merged ${res.totalMergedGroups} duplicate group(s) and removed ${res.duplicatesRemoved} duplicate entries. All models are unified!`
+                        );
+                        loadBrands();
+                        loadModels();
+                      } catch (e: any) {
+                        Alert.alert('Error', e.message || 'Cannot resolve duplicates');
+                      } finally {
+                        setLoading(false);
+                      }
+                    }}
+                  >
+                    <Text style={styles.mergeActionBtnText}>⚡ Auto-Merge</Text>
+                  </TouchableOpacity>
                 </View>
+              )}
+
+              <Text style={[styles.label, { marginBottom: 6 }]}>Add New Brand</Text>
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 4 }}>
+                <TextInput
+                  style={[styles.input, { flex: 1 }]}
+                  placeholder="Brand Name (e.g. Motorola)"
+                  value={newBrandName}
+                  onChangeText={setNewBrandName}
+                />
                 <TouchableOpacity
                   style={[
                     styles.smallBtn,
-                    { backgroundColor: b.isActive ? colors.errorBg : colors.successBg },
+                    {
+                      backgroundColor: isDuplicateInput ? colors.borderDark : colors.primary,
+                      height: 44,
+                      paddingHorizontal: 18,
+                    },
                   ]}
                   onPress={async () => {
+                    const trimmed = newBrandName.trim();
+                    if (!trimmed) return;
+                    if (isDuplicateInput) {
+                      Alert.alert(
+                        'Brand Already Exists',
+                        `A brand named "${trimmed}" already exists in the catalog. Duplicates are not allowed.`
+                      );
+                      return;
+                    }
                     try {
-                      if (b.isActive) {
-                        await adminApi.deactivateBrand(b.id);
-                      } else {
-                        await adminApi.reactivateBrand(b.id);
-                      }
+                      await adminApi.createBrand(trimmed);
+                      setNewBrandName('');
                       loadBrands();
                     } catch (e: any) {
-                      Alert.alert('Error', e.message || 'Cannot update brand');
+                      Alert.alert('Error', e.message || 'Cannot create brand');
                     }
                   }}
                 >
-                  <Text
-                    style={{
-                      color: b.isActive ? colors.error : colors.success,
-                      fontSize: 12,
-                      fontWeight: '600',
-                    }}
-                  >
-                    {b.isActive ? 'Deactivate' : 'Reactivate'}
-                  </Text>
+                  <Text style={{ color: '#fff', fontWeight: '700' }}>Add</Text>
                 </TouchableOpacity>
               </View>
-            ))}
-          </View>
-        )}
+
+              {isDuplicateInput && (
+                <Text style={{ color: colors.error, fontSize: 12, fontWeight: '600', marginBottom: 12 }}>
+                  ⚠️ A brand named "{newBrandName.trim()}" already exists in your catalog!
+                </Text>
+              )}
+
+              <Text style={[typography.h3, { marginTop: 12, marginBottom: 12 }]}>All Brands</Text>
+              {brands.map((b) => {
+                const isDup = brandNormCounts[b.name.trim().toLowerCase()] > 1;
+                return (
+                  <View key={b.id} style={styles.listItem}>
+                    <View style={{ flex: 1, marginRight: 8 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Text style={{ fontWeight: '700', color: colors.textPrimary }}>
+                          {b.name}
+                        </Text>
+                        {isDup && (
+                          <View style={styles.duplicateBadge}>
+                            <Text style={styles.duplicateBadgeText}>⚠️ Duplicate</Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text style={typography.caption}>
+                        Status: {b.isActive ? 'Active' : 'Deactivated'}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      style={[
+                        styles.smallBtn,
+                        { backgroundColor: b.isActive ? colors.errorBg : colors.successBg },
+                      ]}
+                      onPress={async () => {
+                        try {
+                          if (b.isActive) {
+                            await adminApi.deactivateBrand(b.id);
+                          } else {
+                            await adminApi.reactivateBrand(b.id);
+                          }
+                          loadBrands();
+                        } catch (e: any) {
+                          Alert.alert('Error', e.message || 'Cannot update brand');
+                        }
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: b.isActive ? colors.error : colors.success,
+                          fontSize: 12,
+                          fontWeight: '600',
+                        }}
+                      >
+                        {b.isActive ? 'Deactivate' : 'Reactivate'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                );
+              })}
+            </View>
+          );
+        })()}
 
         {/* 3. Categories Tab */}
-        {activeTab === 'categories' && (
-          <View>
-            <Text style={[typography.h3, { marginBottom: 8 }]}>Add New Category</Text>
-            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
-              <TextInput
-                style={[styles.input, { flex: 1 }]}
-                placeholder="Category Name (e.g. Charging Flex)"
-                value={newCategoryName}
-                onChangeText={setNewCategoryName}
-              />
-              <TouchableOpacity
-                style={[styles.smallBtn, { backgroundColor: colors.primary, height: 44 }]}
-                onPress={async () => {
-                  if (!newCategoryName.trim()) return;
-                  try {
-                    await adminApi.createCategory(newCategoryName.trim());
-                    setNewCategoryName('');
-                    loadCategories();
-                  } catch (e: any) {
-                    Alert.alert('Error', e.message || 'Cannot create category');
-                  }
-                }}
-              >
-                <Text style={{ color: '#fff', fontWeight: '600' }}>Add</Text>
-              </TouchableOpacity>
-            </View>
+        {activeTab === 'categories' && (() => {
+          const catNormCounts: Record<string, number> = {};
+          categories.forEach((c) => {
+            const norm = c.name.trim().toLowerCase();
+            catNormCounts[norm] = (catNormCounts[norm] || 0) + 1;
+          });
+          const duplicateCatCount = categories.filter(
+            (c) => catNormCounts[c.name.trim().toLowerCase()] > 1
+          ).length;
+          const isDuplicateCatInput =
+            newCategoryName.trim().length > 0 &&
+            categories.some((c) => c.name.trim().toLowerCase() === newCategoryName.trim().toLowerCase());
 
-            <Text style={[typography.h3, { marginBottom: 12 }]}>All Categories</Text>
-            {categories.map((c) => (
-              <View key={c.id} style={styles.listItem}>
-                <View>
-                  <Text style={{ fontWeight: '600', color: colors.textPrimary }}>
-                    {c.name}
-                  </Text>
-                  <Text style={typography.caption}>
-                    Status: {c.isActive ? 'Active' : 'Deactivated'}
-                  </Text>
+          return (
+            <View>
+              <Text style={[typography.h3, { marginBottom: 4 }]}>
+                Spare Part Categories ({categories.length})
+              </Text>
+              <Text style={[typography.bodySecondary, { marginBottom: 12 }]}>
+                Hardware components for compatibility tracking (e.g. Charging Flex, Display, Battery).
+              </Text>
+
+              {/* Conflict Resolution Banner when Duplicates Exist */}
+              {duplicateCatCount > 0 && (
+                <View style={styles.duplicateConflictBanner}>
+                  <View style={{ flex: 1, marginRight: 10 }}>
+                    <Text style={styles.duplicateConflictTitle}>
+                      ⚠️ {duplicateCatCount} Duplicate Categories Detected!
+                    </Text>
+                    <Text style={styles.duplicateConflictDesc}>
+                      Duplicate categories detected. Tap 'Auto-Merge' to combine groups into a single clean category.
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.mergeActionBtn}
+                    onPress={async () => {
+                      try {
+                        setLoading(true);
+                        const res = await adminApi.deduplicateCategories();
+                        Alert.alert(
+                          'Conflict Resolution Complete ✓',
+                          `Merged ${res.totalMergedGroups} duplicate group(s) and removed ${res.duplicatesRemoved} duplicate entries!`
+                        );
+                        loadCategories();
+                      } catch (e: any) {
+                        Alert.alert('Error', e.message || 'Cannot resolve duplicate categories');
+                      } finally {
+                        setLoading(false);
+                      }
+                    }}
+                  >
+                    <Text style={styles.mergeActionBtnText}>⚡ Auto-Merge</Text>
+                  </TouchableOpacity>
                 </View>
+              )}
+
+              <Text style={[styles.label, { marginBottom: 6 }]}>Add New Category</Text>
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 4 }}>
+                <TextInput
+                  style={[styles.input, { flex: 1 }]}
+                  placeholder="Category Name (e.g. Charging Flex)"
+                  value={newCategoryName}
+                  onChangeText={setNewCategoryName}
+                />
                 <TouchableOpacity
                   style={[
                     styles.smallBtn,
-                    { backgroundColor: c.isActive ? colors.errorBg : colors.successBg },
+                    {
+                      backgroundColor: isDuplicateCatInput ? colors.borderDark : colors.primary,
+                      height: 44,
+                      paddingHorizontal: 18,
+                    },
                   ]}
                   onPress={async () => {
+                    const trimmed = newCategoryName.trim();
+                    if (!trimmed) return;
+                    if (isDuplicateCatInput) {
+                      Alert.alert(
+                        'Category Already Exists',
+                        `A category named "${trimmed}" already exists in the catalog.`
+                      );
+                      return;
+                    }
                     try {
-                      if (c.isActive) {
-                        await adminApi.deactivateCategory(c.id);
-                      } else {
-                        await adminApi.reactivateCategory(c.id);
-                      }
+                      await adminApi.createCategory(trimmed);
+                      setNewCategoryName('');
                       loadCategories();
                     } catch (e: any) {
-                      Alert.alert('Error', e.message || 'Cannot update category');
+                      Alert.alert('Error', e.message || 'Cannot create category');
                     }
                   }}
                 >
-                  <Text
-                    style={{
-                      color: c.isActive ? colors.error : colors.success,
-                      fontSize: 12,
-                      fontWeight: '600',
-                    }}
-                  >
-                    {c.isActive ? 'Deactivate' : 'Reactivate'}
-                  </Text>
+                  <Text style={{ color: '#fff', fontWeight: '700' }}>Add</Text>
                 </TouchableOpacity>
               </View>
-            ))}
-          </View>
-        )}
+
+              {isDuplicateCatInput && (
+                <Text style={{ color: colors.error, fontSize: 12, fontWeight: '600', marginBottom: 12 }}>
+                  ⚠️ A category named "{newCategoryName.trim()}" already exists!
+                </Text>
+              )}
+
+              <Text style={[typography.h3, { marginTop: 12, marginBottom: 12 }]}>All Categories</Text>
+              {categories.map((c) => {
+                const isDup = catNormCounts[c.name.trim().toLowerCase()] > 1;
+                return (
+                  <View key={c.id} style={styles.listItem}>
+                    <View style={{ flex: 1, marginRight: 8 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Text style={{ fontWeight: '700', color: colors.textPrimary }}>
+                          {c.name}
+                        </Text>
+                        {isDup && (
+                          <View style={styles.duplicateBadge}>
+                            <Text style={styles.duplicateBadgeText}>⚠️ Duplicate</Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text style={typography.caption}>
+                        Status: {c.isActive ? 'Active' : 'Deactivated'}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      style={[
+                        styles.smallBtn,
+                        { backgroundColor: c.isActive ? colors.errorBg : colors.successBg },
+                      ]}
+                      onPress={async () => {
+                        try {
+                          if (c.isActive) {
+                            await adminApi.deactivateCategory(c.id);
+                          } else {
+                            await adminApi.reactivateCategory(c.id);
+                          }
+                          loadCategories();
+                        } catch (e: any) {
+                          Alert.alert('Error', e.message || 'Cannot update category');
+                        }
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: c.isActive ? colors.error : colors.success,
+                          fontSize: 12,
+                          fontWeight: '600',
+                        }}
+                      >
+                        {c.isActive ? 'Deactivate' : 'Reactivate'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                );
+              })}
+            </View>
+          );
+        })()}
 
         {/* 4. Models Tab */}
-        {activeTab === 'models' && (
-          <View>
-            <Text style={[typography.h3, { marginBottom: 8 }]}>Create New Model</Text>
-            <View style={{ marginBottom: 12 }}>
-              <Text style={styles.label}>Select Brand</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
-                {brands.map((b) => (
-                  <TouchableOpacity
-                    key={b.id}
-                    style={[
-                      styles.chip,
-                      newModelBrandId === b.id && styles.chipActive,
-                    ]}
-                    onPress={() => setNewModelBrandId(b.id)}
-                  >
-                    <Text
-                      style={[
-                        styles.chipText,
-                        newModelBrandId === b.id && styles.chipTextActive,
-                      ]}
-                    >
-                      {b.name}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-              <TextInput
-                style={[styles.input, { marginBottom: 8 }]}
-                placeholder="Model Name (e.g. Galaxy A53)"
-                value={newModelName}
-                onChangeText={setNewModelName}
-              />
-              <TextInput
-                style={[styles.input, { marginBottom: 12 }]}
-                placeholder="Optional Model Number (e.g. SM-A536B)"
-                value={newModelNumber}
-                onChangeText={setNewModelNumber}
-              />
-              <TouchableOpacity
-                style={[styles.button, { backgroundColor: colors.primary }]}
-                onPress={async () => {
-                  if (!newModelBrandId || !newModelName.trim()) return;
-                  try {
-                    await adminApi.createModel(newModelBrandId, newModelName.trim(), newModelNumber.trim() || undefined);
-                    setNewModelName('');
-                    setNewModelNumber('');
-                    loadModels();
-                  } catch (e: any) {
-                    Alert.alert('Error', e.message || 'Cannot create model');
-                  }
-                }}
-              >
-                <Text style={[typography.button, { color: '#fff' }]}>Create Model</Text>
-              </TouchableOpacity>
-            </View>
+        {activeTab === 'models' && (() => {
+          const isDuplicateModelInput =
+            newModelName.trim().length > 0 &&
+            models.some(
+              (m) =>
+                m.brandId === newModelBrandId &&
+                m.name.trim().toLowerCase() === newModelName.trim().toLowerCase()
+            );
 
-            <Text style={[typography.h3, { marginTop: 16, marginBottom: 12 }]}>All Models</Text>
-            {models.map((m) => (
-              <View key={m.id} style={styles.listItem}>
-                <View>
-                  <Text style={{ fontWeight: '600', color: colors.textPrimary }}>
-                    {m.brandName} {m.name}
+          return (
+            <View>
+              <Text style={[typography.h3, { marginBottom: 4 }]}>
+                Mobile Models Catalog ({models.length})
+              </Text>
+              <Text style={[typography.bodySecondary, { marginBottom: 12 }]}>
+                Define mobile device models and link them to their manufacturers.
+              </Text>
+
+              <Text style={[typography.h3, { marginBottom: 8 }]}>Create New Model</Text>
+              <View style={{ marginBottom: 12 }}>
+                <Text style={styles.label}>Select Brand</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
+                  {brands.map((b) => (
+                    <TouchableOpacity
+                      key={b.id}
+                      style={[
+                        styles.chip,
+                        newModelBrandId === b.id && styles.chipActive,
+                      ]}
+                      onPress={() => setNewModelBrandId(b.id)}
+                    >
+                      <Text
+                        style={[
+                          styles.chipText,
+                          newModelBrandId === b.id && styles.chipTextActive,
+                        ]}
+                      >
+                        {b.name}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+                <TextInput
+                  style={[styles.input, { marginBottom: 8 }]}
+                  placeholder="Model Name (e.g. Galaxy A53)"
+                  value={newModelName}
+                  onChangeText={setNewModelName}
+                />
+                {isDuplicateModelInput && (
+                  <Text style={{ color: colors.error, fontSize: 12, fontWeight: '600', marginBottom: 8 }}>
+                    ⚠️ This model name already exists under the selected brand!
                   </Text>
-                  <Text style={typography.caption}>
-                    {m.modelNumber ? `Model No: ${m.modelNumber} | ` : ''}
-                    {m.isActive ? 'Active' : 'Deactivated'}
-                  </Text>
-                </View>
+                )}
+                <TextInput
+                  style={[styles.input, { marginBottom: 12 }]}
+                  placeholder="Optional Model Number (e.g. SM-A536B)"
+                  value={newModelNumber}
+                  onChangeText={setNewModelNumber}
+                />
                 <TouchableOpacity
                   style={[
-                    styles.smallBtn,
-                    { backgroundColor: m.isActive ? colors.errorBg : colors.successBg },
+                    styles.button,
+                    { backgroundColor: isDuplicateModelInput ? colors.borderDark : colors.primary },
                   ]}
                   onPress={async () => {
+                    if (!newModelBrandId || !newModelName.trim()) return;
+                    if (isDuplicateModelInput) {
+                      Alert.alert(
+                        'Model Already Exists',
+                        `A model named "${newModelName.trim()}" already exists under this brand.`
+                      );
+                      return;
+                    }
                     try {
-                      if (m.isActive) {
-                        await adminApi.deactivateModel(m.id);
-                      } else {
-                        await adminApi.reactivateModel(m.id);
-                      }
+                      await adminApi.createModel(newModelBrandId, newModelName.trim(), newModelNumber.trim() || undefined);
+                      setNewModelName('');
+                      setNewModelNumber('');
                       loadModels();
                     } catch (e: any) {
-                      Alert.alert('Error', e.message || 'Cannot update model');
+                      Alert.alert('Error', e.message || 'Cannot create model');
                     }
                   }}
                 >
-                  <Text
-                    style={{
-                      color: m.isActive ? colors.error : colors.success,
-                      fontSize: 12,
-                      fontWeight: '600',
-                    }}
-                  >
-                    {m.isActive ? 'Deactivate' : 'Reactivate'}
-                  </Text>
+                  <Text style={[typography.button, { color: '#fff' }]}>Create Model</Text>
                 </TouchableOpacity>
               </View>
-            ))}
-          </View>
-        )}
+
+              <Text style={[typography.h3, { marginTop: 16, marginBottom: 12 }]}>All Models</Text>
+              {models.map((m) => (
+                <View key={m.id} style={styles.listItem}>
+                  <View style={{ flex: 1, marginRight: 8 }}>
+                    <Text style={{ fontWeight: '600', color: colors.textPrimary }}>
+                      {m.brandName} {m.name}
+                    </Text>
+                    <Text style={typography.caption}>
+                      {m.modelNumber ? `Model No: ${m.modelNumber} | ` : ''}
+                      {m.isActive ? 'Active' : 'Deactivated'}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    style={[
+                      styles.smallBtn,
+                      { backgroundColor: m.isActive ? colors.errorBg : colors.successBg },
+                    ]}
+                    onPress={async () => {
+                      try {
+                        if (m.isActive) {
+                          await adminApi.deactivateModel(m.id);
+                        } else {
+                          await adminApi.reactivateModel(m.id);
+                        }
+                        loadModels();
+                      } catch (e: any) {
+                        Alert.alert('Error', e.message || 'Cannot update model');
+                      }
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: m.isActive ? colors.error : colors.success,
+                        fontSize: 12,
+                        fontWeight: '600',
+                      }}
+                    >
+                      {m.isActive ? 'Deactivate' : 'Reactivate'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          );
+        })()}
 
         {/* 5. Users Tab */}
         {activeTab === 'users' && (
@@ -2536,6 +2799,55 @@ const styles = StyleSheet.create({
   envAdminBadgeText: {
     color: '#B45309',
     fontSize: 11,
+    fontWeight: '700',
+  },
+  duplicateConflictBanner: {
+    backgroundColor: '#FEF2F2',
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: '#EF4444',
+    padding: 12,
+    marginBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  duplicateConflictTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#991B1B',
+    marginBottom: 3,
+  },
+  duplicateConflictDesc: {
+    fontSize: 11,
+    color: '#7F1D1D',
+    lineHeight: 15,
+  },
+  mergeActionBtn: {
+    backgroundColor: '#DC2626',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  mergeActionBtnText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 12,
+  },
+  duplicateBadge: {
+    backgroundColor: '#FEE2E2',
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+  },
+  duplicateBadgeText: {
+    color: '#B91C1C',
+    fontSize: 10,
     fontWeight: '700',
   },
   previewBox: {

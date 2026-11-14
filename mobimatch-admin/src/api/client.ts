@@ -139,6 +139,10 @@ class AdminApiClient {
     return this.request(`/v1/admin/brands/${id}/reactivate`, { method: 'POST' });
   }
 
+  async deduplicateBrands(): Promise<any> {
+    return this.request('/v1/admin/brands/deduplicate', { method: 'POST' });
+  }
+
   // Categories
   async getCategories(): Promise<any[]> {
     return this.request('/v1/admin/categories');
@@ -164,6 +168,10 @@ class AdminApiClient {
 
   async reactivateCategory(id: string): Promise<any> {
     return this.request(`/v1/admin/categories/${id}/reactivate`, { method: 'POST' });
+  }
+
+  async deduplicateCategories(): Promise<any> {
+    return this.request('/v1/admin/categories/deduplicate', { method: 'POST' });
   }
 
   // Models

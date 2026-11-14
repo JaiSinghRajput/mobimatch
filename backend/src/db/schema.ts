@@ -85,7 +85,7 @@ export const brands = pgTable(
     deactivatedAt: timestamp('deactivated_at', { withTimezone: true }),
   },
   (table) => ({
-    normalizedNameIdx: index('brands_normalized_name_idx').on(table.normalizedName),
+    normalizedNameIdx: uniqueIndex('brands_normalized_name_idx').on(table.normalizedName),
   })
 );
 
@@ -107,7 +107,7 @@ export const mobileModels = pgTable(
   },
   (table) => ({
     brandIdIdx: index('mobile_models_brand_id_idx').on(table.brandId),
-    brandModelNormalizedIdx: index('mobile_models_brand_norm_idx').on(
+    brandModelNormalizedIdx: uniqueIndex('mobile_models_brand_norm_idx').on(
       table.brandId,
       table.normalizedName
     ),

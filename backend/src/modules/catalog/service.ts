@@ -1,6 +1,12 @@
-import { eq, and, sql, desc, asc, ilike, or } from 'drizzle-orm';
+import { eq, and, sql, desc, asc, ilike, or, ne } from 'drizzle-orm';
 import { getDb } from '../../db';
-import { brands, mobileModels, sparePartCategories } from '../../db/schema';
+import {
+  brands,
+  mobileModels,
+  sparePartCategories,
+  compatibilityGroups,
+  compatibilityGroupMembers,
+} from '../../db/schema';
 import {
   getCache,
   setCache,
@@ -47,6 +53,39 @@ export async function createBrand(name: string) {
   const trimmed = name.trim();
   const normalized = normalizeText(trimmed);
 
+  // Check if a brand with this normalized name already exists
+  const existing = await db
+    .select()
+    .from(brands)
+    .where(eq(brands.normalizedName, normalized))
+    .limit(1);
+
+  if (existing.length > 0) {
+    const found = existing[0];
+    if (found.isActive) {
+      const err: any = new Error(`Brand "${found.name}" already exists in the catalog.`);
+      err.code = 'BRAND_ALREADY_EXISTS';
+      err.statusCode = 409;
+      err.existingBrand = found;
+      throw err;
+    } else {
+      // Conflict resolution: Reactivate the existing deactivated brand
+      const [reactivated] = await db
+        .update(brands)
+        .set({
+          name: trimmed,
+          isActive: true,
+          deactivatedAt: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(brands.id, found.id))
+        .returning();
+
+      await invalidateCatalogCache();
+      return reactivated;
+    }
+  }
+
   const [created] = await db
     .insert(brands)
     .values({
@@ -64,6 +103,19 @@ export async function updateBrand(id: string, name: string) {
   const db = getDb();
   const trimmed = name.trim();
   const normalized = normalizeText(trimmed);
+
+  const collision = await db
+    .select()
+    .from(brands)
+    .where(and(eq(brands.normalizedName, normalized), ne(brands.id, id)))
+    .limit(1);
+
+  if (collision.length > 0) {
+    const err: any = new Error(`Another brand named "${collision[0].name}" already exists.`);
+    err.code = 'BRAND_ALREADY_EXISTS';
+    err.statusCode = 409;
+    throw err;
+  }
 
   const [updated] = await db
     .update(brands)
@@ -134,6 +186,38 @@ export async function createCategory(name: string) {
   const trimmed = name.trim();
   const normalized = normalizeText(trimmed);
 
+  const existing = await db
+    .select()
+    .from(sparePartCategories)
+    .where(eq(sparePartCategories.normalizedName, normalized))
+    .limit(1);
+
+  if (existing.length > 0) {
+    const found = existing[0];
+    if (found.isActive) {
+      const err: any = new Error(`Category "${found.name}" already exists in the catalog.`);
+      err.code = 'CATEGORY_ALREADY_EXISTS';
+      err.statusCode = 409;
+      err.existingCategory = found;
+      throw err;
+    } else {
+      // Conflict resolution: Reactivate the existing deactivated category
+      const [reactivated] = await db
+        .update(sparePartCategories)
+        .set({
+          name: trimmed,
+          isActive: true,
+          deactivatedAt: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(sparePartCategories.id, found.id))
+        .returning();
+
+      await invalidateCatalogCache();
+      return reactivated;
+    }
+  }
+
   const [created] = await db
     .insert(sparePartCategories)
     .values({
@@ -151,6 +235,19 @@ export async function updateCategory(id: string, name: string) {
   const db = getDb();
   const trimmed = name.trim();
   const normalized = normalizeText(trimmed);
+
+  const collision = await db
+    .select()
+    .from(sparePartCategories)
+    .where(and(eq(sparePartCategories.normalizedName, normalized), ne(sparePartCategories.id, id)))
+    .limit(1);
+
+  if (collision.length > 0) {
+    const err: any = new Error(`Another category named "${collision[0].name}" already exists.`);
+    err.code = 'CATEGORY_ALREADY_EXISTS';
+    err.statusCode = 409;
+    throw err;
+  }
 
   const [updated] = await db
     .update(sparePartCategories)
@@ -238,6 +335,39 @@ export async function createModel(brandId: string, name: string, modelNumber?: s
   const trimmed = name.trim();
   const normalized = normalizeText(trimmed);
 
+  const existing = await db
+    .select()
+    .from(mobileModels)
+    .where(and(eq(mobileModels.brandId, brandId), eq(mobileModels.normalizedName, normalized)))
+    .limit(1);
+
+  if (existing.length > 0) {
+    const found = existing[0];
+    if (found.isActive) {
+      const err: any = new Error(`Model "${found.name}" already exists for this brand.`);
+      err.code = 'MODEL_ALREADY_EXISTS';
+      err.statusCode = 409;
+      err.existingModel = found;
+      throw err;
+    } else {
+      // Conflict resolution: Reactivate deactivated model
+      const [reactivated] = await db
+        .update(mobileModels)
+        .set({
+          name: trimmed,
+          modelNumber: modelNumber ? modelNumber.trim() : found.modelNumber,
+          isActive: true,
+          deactivatedAt: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(mobileModels.id, found.id))
+        .returning();
+
+      await invalidateCatalogCache();
+      return reactivated;
+    }
+  }
+
   const [created] = await db
     .insert(mobileModels)
     .values({
@@ -258,6 +388,42 @@ export async function updateModel(
   data: { brandId?: string; name?: string; modelNumber?: string | null }
 ) {
   const db = getDb();
+
+  if (data.name || data.brandId) {
+    const current = await db
+      .select()
+      .from(mobileModels)
+      .where(eq(mobileModels.id, id))
+      .limit(1);
+
+    if (current.length > 0) {
+      const targetBrandId = data.brandId || current[0].brandId;
+      const targetName = data.name ? data.name.trim() : current[0].name;
+      const targetNorm = normalizeText(targetName);
+
+      const collision = await db
+        .select()
+        .from(mobileModels)
+        .where(
+          and(
+            eq(mobileModels.brandId, targetBrandId),
+            eq(mobileModels.normalizedName, targetNorm),
+            ne(mobileModels.id, id)
+          )
+        )
+        .limit(1);
+
+      if (collision.length > 0) {
+        const err: any = new Error(
+          `Another model named "${collision[0].name}" already exists under this brand.`
+        );
+        err.code = 'MODEL_ALREADY_EXISTS';
+        err.statusCode = 409;
+        throw err;
+      }
+    }
+  }
+
   const updateData: Record<string, unknown> = { updatedAt: new Date() };
 
   if (data.brandId) updateData.brandId = data.brandId;
@@ -335,5 +501,191 @@ export async function searchActiveModels(query: string, limit = 20) {
 
   await setCache(cacheKey, results, 120); // 2 mins search cache
   return results;
+}
+
+// ==========================================
+// Conflict Resolution & Deduplication
+// ==========================================
+
+export async function autoDeduplicateBrands() {
+  const db = getDb();
+
+  // Find all brands
+  const allBrands = await db
+    .select()
+    .from(brands)
+    .orderBy(asc(brands.createdAt));
+
+  // Group by normalizedName
+  const groups: Record<string, typeof allBrands> = {};
+  for (const b of allBrands) {
+    if (!groups[b.normalizedName]) {
+      groups[b.normalizedName] = [];
+    }
+    groups[b.normalizedName].push(b);
+  }
+
+  let totalMergedGroups = 0;
+  let duplicatesRemoved = 0;
+
+  for (const norm in groups) {
+    const brandList = groups[norm];
+    if (brandList.length <= 1) continue;
+
+    // Count models for each brand to preserve the one with the most data
+    const brandWithCounts = await Promise.all(
+      brandList.map(async (b) => {
+        const countRes = await db
+          .select({ count: sql<number>`count(*)` })
+          .from(mobileModels)
+          .where(eq(mobileModels.brandId, b.id));
+        return {
+          brand: b,
+          modelCount: Number(countRes[0]?.count || 0),
+        };
+      })
+    );
+
+    // Sort: active first, then most models, then oldest created
+    brandWithCounts.sort((a, b) => {
+      if (a.brand.isActive !== b.brand.isActive) {
+        return a.brand.isActive ? -1 : 1;
+      }
+      if (b.modelCount !== a.modelCount) {
+        return b.modelCount - a.modelCount;
+      }
+      return new Date(a.brand.createdAt).getTime() - new Date(b.brand.createdAt).getTime();
+    });
+
+    const primaryBrand = brandWithCounts[0].brand;
+    const secondaryBrands = brandWithCounts.slice(1).map((x) => x.brand);
+
+    for (const sec of secondaryBrands) {
+      // Migrate all models from duplicate secondary brand to primaryBrand
+      const secModels = await db
+        .select()
+        .from(mobileModels)
+        .where(eq(mobileModels.brandId, sec.id));
+
+      for (const m2 of secModels) {
+        // Check if primaryBrand already has model with this normalizedName
+        const primMatch = await db
+          .select()
+          .from(mobileModels)
+          .where(
+            and(
+              eq(mobileModels.brandId, primaryBrand.id),
+              eq(mobileModels.normalizedName, m2.normalizedName)
+            )
+          )
+          .limit(1);
+
+        if (primMatch.length > 0) {
+          const primModel = primMatch[0];
+          // Re-point any compatibility memberships from duplicate model to primary model
+          const memberships = await db
+            .select()
+            .from(compatibilityGroupMembers)
+            .where(eq(compatibilityGroupMembers.modelId, m2.id));
+
+          for (const mem of memberships) {
+            const existingMem = await db
+              .select()
+              .from(compatibilityGroupMembers)
+              .where(
+                and(
+                  eq(compatibilityGroupMembers.groupId, mem.groupId),
+                  eq(compatibilityGroupMembers.modelId, primModel.id)
+                )
+              )
+              .limit(1);
+
+            if (existingMem.length === 0) {
+              await db
+                .update(compatibilityGroupMembers)
+                .set({ modelId: primModel.id })
+                .where(eq(compatibilityGroupMembers.id, mem.id));
+            } else {
+              await db
+                .delete(compatibilityGroupMembers)
+                .where(eq(compatibilityGroupMembers.id, mem.id));
+            }
+          }
+
+          // Delete duplicate model
+          await db.delete(mobileModels).where(eq(mobileModels.id, m2.id));
+        } else {
+          // Re-assign model to primary brand
+          await db
+            .update(mobileModels)
+            .set({ brandId: primaryBrand.id, updatedAt: new Date() })
+            .where(eq(mobileModels.id, m2.id));
+        }
+      }
+
+      // Safe to delete secondary duplicate brand
+      await db.delete(brands).where(eq(brands.id, sec.id));
+      duplicatesRemoved++;
+    }
+
+    totalMergedGroups++;
+  }
+
+  await invalidateCatalogCache();
+  return {
+    success: true,
+    totalMergedGroups,
+    duplicatesRemoved,
+  };
+}
+
+export async function autoDeduplicateCategories() {
+  const db = getDb();
+  const allCats = await db
+    .select()
+    .from(sparePartCategories)
+    .orderBy(asc(sparePartCategories.createdAt));
+
+  const groups: Record<string, typeof allCats> = {};
+  for (const c of allCats) {
+    if (!groups[c.normalizedName]) {
+      groups[c.normalizedName] = [];
+    }
+    groups[c.normalizedName].push(c);
+  }
+
+  let totalMergedGroups = 0;
+  let duplicatesRemoved = 0;
+
+  for (const norm in groups) {
+    const catList = groups[norm];
+    if (catList.length <= 1) continue;
+
+    catList.sort((a, b) => {
+      if (a.isActive !== b.isActive) return a.isActive ? -1 : 1;
+      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    });
+
+    const primary = catList[0];
+    const secondaries = catList.slice(1);
+
+    for (const sec of secondaries) {
+      await db
+        .update(compatibilityGroups)
+        .set({ categoryId: primary.id, updatedAt: new Date() })
+        .where(eq(compatibilityGroups.categoryId, sec.id));
+
+      await db.delete(sparePartCategories).where(eq(sparePartCategories.id, sec.id));
+      duplicatesRemoved++;
+    }
+    totalMergedGroups++;
+  }
+
+  await invalidateCatalogCache();
+  return {
+    success: true,
+    totalMergedGroups,
+    duplicatesRemoved,
+  };
 }
 
