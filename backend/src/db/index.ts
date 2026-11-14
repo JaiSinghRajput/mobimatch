@@ -160,14 +160,25 @@ CREATE INDEX IF NOT EXISTS model_requests_status_idx ON model_requests(status);
 export function getPool(): Pool {
   if (!pool) {
     // Cloud database providers (Render, Supabase, Neon, Railway) require SSL
+    const isExplicitlyDisabled =
+      process.env.DATABASE_SSL === 'false' ||
+      config.databaseUrl.includes('sslmode=disable');
+
+    const isLocal =
+      config.databaseUrl.includes('localhost') ||
+      config.databaseUrl.includes('127.0.0.1');
+
     const isSslRequired =
-      process.env.NODE_ENV === 'production' ||
-      process.env.DATABASE_SSL === 'true' ||
-      config.databaseUrl.includes('sslmode=require') ||
-      config.databaseUrl.includes('ssl=true') ||
-      config.databaseUrl.includes('render.com') ||
-      config.databaseUrl.includes('neon.tech') ||
-      config.databaseUrl.includes('supabase.co');
+      !isExplicitlyDisabled &&
+      !isLocal &&
+      (process.env.NODE_ENV === 'production' ||
+        process.env.DATABASE_SSL === 'true' ||
+        config.databaseUrl.includes('sslmode=require') ||
+        config.databaseUrl.includes('ssl=true') ||
+        config.databaseUrl.includes('render.com') ||
+        config.databaseUrl.includes('dpg-') ||
+        config.databaseUrl.includes('neon.tech') ||
+        config.databaseUrl.includes('supabase.co'));
 
     pool = new Pool({
       connectionString: config.databaseUrl,

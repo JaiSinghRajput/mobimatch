@@ -18,9 +18,9 @@ services:
       - key: PORT
         value: 10000
       - key: DATABASE_URL
-        fromDatabase:
-          name: mobimatch-db
-          property: connectionString
+        value: postgresql://mobimatch_db_user:v19JFBITSNNsJIYb1gJqHCP6zS6BpfH6@dpg-dbs5kjei0phs73c6d9mg-a/mobimatch_db
+      - key: REDIS_URL
+        value: redis://red-dbs5isk9v7es73bom70g:6379
       - key: INITIAL_ADMIN_EMAIL
         value: jaisinghrajput9461@gmail.com
       - key: JWT_ACCESS_SECRET
@@ -43,10 +43,3 @@ services:
         value: https://mobimatch.local/privacy
       - key: ACCOUNT_DELETION_URL
         value: https://mobimatch.local/account-deletion
-
-databases:
-  - name: mobimatch-db
-    databaseName: mobimatch
-    user: mobimatch_user
-    plan: free
-    region: oregon
