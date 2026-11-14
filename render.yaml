@@ -7,7 +7,7 @@ services:
   - type: web
     name: mobimatch-backend
     runtime: node
-    plan: starter
+    plan: free
     region: oregon
     buildCommand: npm run build
     startCommand: npm run start
