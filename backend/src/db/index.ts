@@ -8,13 +8,173 @@ import * as schema from './schema';
 let pool: Pool | null = null;
 let dbInstance: NodePgDatabase<typeof schema> | null = null;
 
+// Embedded Fallback DDL Schema to guarantee migration success even if .sql file is stripped during build
+const FALLBACK_SCHEMA_SQL = `
+DO $$
+BEGIN
+    CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+EXCEPTION
+    WHEN OTHERS THEN
+        RAISE NOTICE 'uuid-ossp extension skipped or already exists';
+END $$;
+
+-- 1. Users
+CREATE TABLE IF NOT EXISTS users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    google_sub TEXT UNIQUE NOT NULL,
+    email TEXT NOT NULL,
+    name TEXT NOT NULL,
+    phone TEXT NOT NULL,
+    shop_name TEXT NOT NULL,
+    city TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'active',
+    terms_accepted_at TIMESTAMPTZ NOT NULL,
+    privacy_accepted_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS users_email_idx ON users(email);
+CREATE UNIQUE INDEX IF NOT EXISTS users_google_sub_idx ON users(google_sub);
+
+-- 2. Admin Allowlist
+CREATE TABLE IF NOT EXISTS admin_allowlist (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email_normalized TEXT UNIQUE NOT NULL,
+    added_by_admin_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS admin_allowlist_email_normalized_idx ON admin_allowlist(email_normalized);
+
+-- 3. Sessions
+CREATE TABLE IF NOT EXISTS sessions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    refresh_token_hash TEXT UNIQUE NOT NULL,
+    device_label TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    last_used_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    expires_at TIMESTAMPTZ NOT NULL,
+    revoked_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS sessions_user_id_idx ON sessions(user_id);
+CREATE UNIQUE INDEX IF NOT EXISTS sessions_refresh_token_hash_idx ON sessions(refresh_token_hash);
+
+-- 4. Brands
+CREATE TABLE IF NOT EXISTS brands (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    normalized_name TEXT NOT NULL,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deactivated_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS brands_normalized_name_idx ON brands(normalized_name);
+
+-- 5. Mobile Models
+CREATE TABLE IF NOT EXISTS mobile_models (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    brand_id UUID NOT NULL REFERENCES brands(id) ON DELETE RESTRICT,
+    name TEXT NOT NULL,
+    normalized_name TEXT NOT NULL,
+    model_number TEXT,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deactivated_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS mobile_models_brand_id_idx ON mobile_models(brand_id);
+CREATE INDEX IF NOT EXISTS mobile_models_brand_norm_idx ON mobile_models(brand_id, normalized_name);
+CREATE INDEX IF NOT EXISTS mobile_models_number_idx ON mobile_models(model_number);
+
+-- 6. Spare Part Categories
+CREATE TABLE IF NOT EXISTS spare_part_categories (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    normalized_name TEXT UNIQUE NOT NULL,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deactivated_at TIMESTAMPTZ
+);
+CREATE UNIQUE INDEX IF NOT EXISTS spare_part_categories_norm_idx ON spare_part_categories(normalized_name);
+
+-- 7. Compatibility Groups
+CREATE TABLE IF NOT EXISTS compatibility_groups (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    category_id UUID NOT NULL REFERENCES spare_part_categories(id) ON DELETE RESTRICT,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_by_admin_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    updated_by_admin_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deactivated_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS compatibility_groups_category_id_idx ON compatibility_groups(category_id);
+
+-- 8. Compatibility Group Members
+CREATE TABLE IF NOT EXISTS compatibility_group_members (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    group_id UUID NOT NULL REFERENCES compatibility_groups(id) ON DELETE CASCADE,
+    model_id UUID NOT NULL REFERENCES mobile_models(id) ON DELETE RESTRICT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS group_members_group_model_unique_idx ON compatibility_group_members(group_id, model_id);
+CREATE INDEX IF NOT EXISTS group_members_model_id_idx ON compatibility_group_members(model_id);
+
+-- 9. Issue Reports
+CREATE TABLE IF NOT EXISTS issue_reports (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    type TEXT NOT NULL,
+    category_id UUID REFERENCES spare_part_categories(id) ON DELETE SET NULL,
+    model_id UUID REFERENCES mobile_models(id) ON DELETE SET NULL,
+    group_id UUID REFERENCES compatibility_groups(id) ON DELETE SET NULL,
+    description TEXT,
+    status TEXT NOT NULL DEFAULT 'open',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS issue_reports_user_id_idx ON issue_reports(user_id);
+CREATE INDEX IF NOT EXISTS issue_reports_status_idx ON issue_reports(status);
+
+-- 10. Model Requests
+CREATE TABLE IF NOT EXISTS model_requests (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    brand_name_submitted TEXT NOT NULL,
+    model_name_submitted TEXT NOT NULL,
+    model_number_submitted TEXT,
+    notes TEXT,
+    status TEXT NOT NULL DEFAULT 'pending',
+    reviewed_by_admin_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    reviewed_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS model_requests_user_id_idx ON model_requests(user_id);
+CREATE INDEX IF NOT EXISTS model_requests_status_idx ON model_requests(status);
+`;
+
 export function getPool(): Pool {
   if (!pool) {
+    // Cloud database providers (Render, Supabase, Neon, Railway) require SSL
+    const isSslRequired =
+      process.env.NODE_ENV === 'production' ||
+      process.env.DATABASE_SSL === 'true' ||
+      config.databaseUrl.includes('sslmode=require') ||
+      config.databaseUrl.includes('ssl=true') ||
+      config.databaseUrl.includes('render.com') ||
+      config.databaseUrl.includes('neon.tech') ||
+      config.databaseUrl.includes('supabase.co');
+
     pool = new Pool({
       connectionString: config.databaseUrl,
+      ssl: isSslRequired ? { rejectUnauthorized: false } : undefined,
       max: 20,
       idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 5000,
+      connectionTimeoutMillis: 10000,
     });
 
     pool.on('error', (err) => {
@@ -42,19 +202,64 @@ export function setDbInstance(customDb: NodePgDatabase<typeof schema>, customPoo
 }
 
 /**
- * Runs SQL migrations and bootstraps initial admin allowlist entry
+ * Finds migration SQL from filesystem or falls back to embedded SQL
+ */
+function getMigrationSql(): string {
+  const candidatePaths = [
+    path.resolve(__dirname, '../../migrations/0001_initial_schema.sql'),
+    path.resolve(__dirname, '../migrations/0001_initial_schema.sql'),
+    path.resolve(__dirname, './migrations/0001_initial_schema.sql'),
+    path.resolve(process.cwd(), 'migrations/0001_initial_schema.sql'),
+    path.resolve(process.cwd(), 'backend/migrations/0001_initial_schema.sql'),
+    path.resolve(process.cwd(), 'dist/migrations/0001_initial_schema.sql'),
+  ];
+
+  for (const p of candidatePaths) {
+    try {
+      if (fs.existsSync(p)) {
+        return fs.readFileSync(p, 'utf8');
+      }
+    } catch {
+      // Continue to next candidate
+    }
+  }
+
+  // Use embedded SQL fallback if no file is found
+  return FALLBACK_SCHEMA_SQL;
+}
+
+/**
+ * Runs SQL migrations with automatic retry and bootstraps initial admin allowlist entry
  */
 export async function runMigrations(): Promise<void> {
   const currentPool = getPool();
-  const client: PoolClient = await currentPool.connect();
+  let client: PoolClient | null = null;
+
+  // Retry connection up to 5 times (helps with cold-starts on Render / cloud DBs)
+  const maxAttempts = 5;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      client = await currentPool.connect();
+      break;
+    } catch (err: any) {
+      if (attempt === maxAttempts) {
+        console.error(`Failed to connect to database after ${maxAttempts} attempts:`, err.message);
+        throw err;
+      }
+      const delayMs = attempt * 1500;
+      console.warn(`Database connection attempt ${attempt}/${maxAttempts} failed (${err.message}). Retrying in ${delayMs / 1000}s...`);
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+
+  if (!client) {
+    throw new Error('Could not obtain PostgreSQL client');
+  }
 
   try {
-    const migrationFile = path.resolve(__dirname, '../../migrations/0001_initial_schema.sql');
-    if (fs.existsSync(migrationFile)) {
-      const sqlContent = fs.readFileSync(migrationFile, 'utf8');
-      await client.query(sqlContent);
-      console.log('Database migration 0001_initial_schema executed successfully.');
-    }
+    const sqlContent = getMigrationSql();
+    await client.query(sqlContent);
+    console.log('Database migration 0001_initial_schema executed successfully.');
 
     // Seed INITIAL_ADMIN_EMAIL if configured and not present
     if (config.initialAdminEmail) {
@@ -66,7 +271,7 @@ export async function runMigrations(): Promise<void> {
 
       if (existing.rowCount === 0) {
         await client.query(
-          'INSERT INTO admin_allowlist (email_normalized) VALUES ($1)',
+          'INSERT INTO admin_allowlist (email_normalized) VALUES ($1) ON CONFLICT (email_normalized) DO NOTHING',
           [normalizedEmail]
         );
         console.log(`Bootstrapped initial admin allowlist entry for: ${normalizedEmail}`);
@@ -84,4 +289,3 @@ export async function closeDb(): Promise<void> {
     dbInstance = null;
   }
 }
-

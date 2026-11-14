@@ -1,0 +1,52 @@
+# Render Blueprint for MobiMatch Production Deployment
+# https://render.com/docs/blueprint-spec
+
+version: "1"
+
+services:
+  - type: web
+    name: mobimatch-backend
+    runtime: node
+    plan: starter
+    region: oregon
+    buildCommand: npm run build
+    startCommand: npm run start
+    healthCheckPath: /health/live
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: DATABASE_URL
+        fromDatabase:
+          name: mobimatch-db
+          property: connectionString
+      - key: INITIAL_ADMIN_EMAIL
+        value: jaisinghrajput9461@gmail.com
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: DEV_MOCK_AUTH
+        value: "false"
+      - key: GOOGLE_CLIENT_IDS
+        sync: false
+      - key: APP_MAINTENANCE_MODE
+        value: "false"
+      - key: USER_APP_UPDATE_URL
+        value: https://play.google.com/store/apps/details?id=com.mobimatch.app
+      - key: ADMIN_APP_UPDATE_URL
+        value: https://mobimatch.local/admin-update
+      - key: TERMS_URL
+        value: https://mobimatch.local/terms
+      - key: PRIVACY_POLICY_URL
+        value: https://mobimatch.local/privacy
+      - key: ACCOUNT_DELETION_URL
+        value: https://mobimatch.local/account-deletion
+
+databases:
+  - name: mobimatch-db
+    databaseName: mobimatch
+    user: mobimatch_user
+    plan: free
+    region: oregon

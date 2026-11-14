@@ -27,12 +27,13 @@ export function buildServer(): FastifyInstance {
     'application/json',
     { parseAs: 'string' },
     (_req, body, defaultDone) => {
-      if (!body || (typeof body === 'string' && body.trim() === '')) {
+      const str = typeof body === 'string' ? body : body.toString('utf8');
+      if (!str || str.trim() === '') {
         defaultDone(null, {});
         return;
       }
       try {
-        defaultDone(null, JSON.parse(body));
+        defaultDone(null, JSON.parse(str));
       } catch (err) {
         defaultDone(err as Error, undefined);
       }

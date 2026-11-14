@@ -5,8 +5,10 @@
   "main": "dist/server.js",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "tsc",
+    "build": "tsc && node -e \"const fs=require('fs'); if(fs.existsSync('migrations')){fs.cpSync('migrations','dist/migrations',{recursive:true,errorOnExist:false});}\"",
+    "postinstall": "tsc || true",
     "start": "node dist/server.js",
+    "db:migrate": "node -e \"require('./dist/db').runMigrations().then(()=>process.exit(0)).catch(e=>{console.error(e);process.exit(1);})\"",
     "db:seed": "tsx src/db/seed.ts",
     "test": "vitest run"
   },
@@ -29,6 +31,7 @@
     "@types/pg": "^8.11.10",
     "@types/supertest": "^6.0.2",
     "@types/uuid": "^10.0.0",
+    "drizzle-kit": "^0.28.1",
     "pg-mem": "^3.0.4",
     "supertest": "^7.0.0",
     "tsx": "^4.19.2",
@@ -36,4 +39,3 @@
     "vitest": "^2.1.4"
   }
 }
-

@@ -10,11 +10,16 @@
     "mobimatch-admin"
   ],
   "scripts": {
-    "build": "npm run --workspaces --if-present build",
-    "test": "npm run --workspace=packages/api-contracts test && npm run --workspace=backend test",
+    "build": "npm run --workspace=@mobimatch/api-contracts build && npm run --workspace=mobimatch-backend build",
+    "postinstall": "npm run --workspace=@mobimatch/api-contracts build && npm run --workspace=mobimatch-backend build",
+    "start": "npm run --workspace=mobimatch-backend start",
+    "backend:start": "npm run --workspace=mobimatch-backend start",
+    "backend:build": "npm run --workspace=@mobimatch/api-contracts build && npm run --workspace=mobimatch-backend build",
     "backend:dev": "npm run --workspace=backend dev",
     "backend:test": "npm run --workspace=backend test",
+    "db:migrate": "npm run --workspace=mobimatch-backend db:migrate",
     "db:seed": "npm run --workspace=mobimatch-backend db:seed",
+    "test": "npm run --workspace=packages/api-contracts test && npm run --workspace=backend test",
     "check:types": "npm run --workspace=@mobimatch/api-contracts build && npm run --workspace=mobimatch-backend build && npx tsc --noEmit -p mobimatch/tsconfig.json && npx tsc --noEmit -p mobimatch-admin/tsconfig.json",
     "admin:start": "npm run --workspace=mobimatch-admin start",
     "user:start": "npm run --workspace=mobimatch start"
@@ -27,4 +32,3 @@
   "author": "MobiMatch Team",
   "license": "UNLICENSED"
 }
-
