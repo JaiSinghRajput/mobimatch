@@ -30,5 +30,8 @@
     "compatibility"
   ],
   "author": "MobiMatch Team",
-  "license": "UNLICENSED"
+  "license": "UNLICENSED",
+  "dependencies": {
+    "zod": "3.24.2"
+  }
 }
