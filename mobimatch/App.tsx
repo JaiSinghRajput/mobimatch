@@ -13,6 +13,7 @@ import {
   Linking,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import * as Clipboard from 'expo-clipboard';
 import { userApi } from './src/api/client';
 import { colors, spacing, typography } from './src/theme';
 import { GoogleAdBanner } from './src/components/GoogleAdBanner';
@@ -263,19 +264,31 @@ function UserAppContent() {
   };
 
   // Copy List Action
-  const handleCopyList = () => {
+  const handleCopyList = async () => {
     if (!compatResult) return;
     const textLines = [
       `MobiMatch Compatibility: ${compatResult.categoryName}`,
+      `Target Model: ${compatResult.selectedModel.brandName} ${compatResult.selectedModel.modelName}`,
       `Total Compatible Models: ${compatResult.totalCount}`,
       '----------------------------------------',
-      ...compatResult.models.map((m) => `${m.brandName} — ${m.modelName}`),
+      ...compatResult.models.map((m) => `${m.brandName} — ${m.modelName}${m.modelNumber ? ` (${m.modelNumber})` : ''}`),
+      '----------------------------------------',
+      'Shared via MobiMatch by Jhankar Mobile',
     ];
     const fullText = textLines.join('\n');
 
+    try {
+      await Clipboard.setStringAsync(fullText);
+    } catch (err: any) {
+      console.warn('Clipboard write error:', err.message);
+    }
+
     setCopiedNotice(true);
-    setTimeout(() => setCopiedNotice(false), 2500);
-    Alert.alert('List Copied', `Compatible models list ready to copy:\n\n${fullText}`);
+    setTimeout(() => setCopiedNotice(false), 3000);
+    Alert.alert(
+      'Copied to Clipboard ✓',
+      `Compatible models list has been copied to your clipboard.\n\nYou can now paste it into WhatsApp, messages, or notes.`
+    );
   };
 
   // Account Deletion

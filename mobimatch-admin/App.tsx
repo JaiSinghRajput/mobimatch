@@ -11,7 +11,7 @@ import {
   StatusBar,
   Platform,
 } from 'react-native';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { adminApi } from './src/api/client';
 import { colors, spacing, typography } from './src/theme';
 import {
@@ -31,6 +31,7 @@ type AdminTab =
   | 'allowlist';
 
 function AdminAppContent() {
+  const insets = useSafeAreaInsets();
   const [currentUser, setCurrentUser] = useState<any | null>(null);
   const [isAllowlisted, setIsAllowlisted] = useState<boolean>(true);
   const [loading, setLoading] = useState<boolean>(false);
@@ -41,7 +42,7 @@ function AdminAppContent() {
   // Tab Title Helpers
   const getTabLabel = (tab: AdminTab) => {
     switch (tab) {
-      case 'compatibility': return 'Bulk Compatibility Parser';
+      case 'compatibility': return 'Compatibility Studio';
       case 'brands': return 'Brands Catalog';
       case 'categories': return 'Spare Part Categories';
       case 'models': return 'Mobile Models';
@@ -82,6 +83,18 @@ function AdminAppContent() {
   const [manualSelectedModels, setManualSelectedModels] = useState<any[]>([]);
   const [manualSearchQuery, setManualSearchQuery] = useState('');
   const [manualBrandFilter, setManualBrandFilter] = useState<string>('all');
+
+  // On-The-Go Inline Creation States
+  const [showInlineCategoryForm, setShowInlineCategoryForm] = useState(false);
+  const [inlineCategoryName, setInlineCategoryName] = useState('');
+  const [showInlineModelForm, setShowInlineModelForm] = useState(false);
+  const [inlineModelBrandId, setInlineModelBrandId] = useState('');
+  const [inlineNewBrandName, setInlineNewBrandName] = useState('');
+  const [inlineModelName, setInlineModelName] = useState('');
+  const [inlineModelNumber, setInlineModelNumber] = useState('');
+
+  // Search Filter for Users Tab
+  const [userSearchQuery, setUserSearchQuery] = useState('');
 
   // Catalog Data States
   const [brands, setBrands] = useState<any[]>([]);
@@ -225,6 +238,91 @@ function AdminAppContent() {
       setAdminsList(data);
     } catch (e: any) {
       console.warn(e.message);
+    }
+  };
+
+  // On-The-Go Inline Creation Handlers
+  const handleCreateInlineCategory = async () => {
+    if (!inlineCategoryName.trim()) {
+      Alert.alert('Category Name Required', 'Please enter a name for the new category.');
+      return;
+    }
+    setLoading(true);
+    try {
+      const created = await adminApi.createCategory(inlineCategoryName.trim());
+      await loadCategories();
+      setSelectedCategoryId(created.id);
+      setInlineCategoryName('');
+      setShowInlineCategoryForm(false);
+      Alert.alert('Category Created ✓', `"${created.name}" is now active and selected!`);
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Cannot create category');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateInlineModelAndStage = async (addToGroup: boolean = false) => {
+    if (!inlineModelName.trim()) {
+      Alert.alert('Model Name Required', 'Please enter a model name (e.g. Note 12).');
+      return;
+    }
+
+    let targetBrandId = inlineModelBrandId;
+    setLoading(true);
+    try {
+      // If brand doesn't exist and user typed a new brand name
+      if (!targetBrandId && inlineNewBrandName.trim()) {
+        const newBrand = await adminApi.createBrand(inlineNewBrandName.trim());
+        targetBrandId = newBrand.id;
+        await loadBrands();
+      } else if (!targetBrandId && brands.length > 0) {
+        targetBrandId = brands[0].id;
+      }
+
+      if (!targetBrandId) {
+        Alert.alert('Brand Required', 'Please choose an existing brand or type a new one.');
+        setLoading(false);
+        return;
+      }
+
+      const createdModel = await adminApi.createModel(
+        targetBrandId,
+        inlineModelName.trim(),
+        inlineModelNumber.trim() || undefined
+      );
+
+      await loadModels();
+
+      if (addToGroup) {
+        // Stage in manual group
+        setManualSelectedModels((prev) => [...prev, createdModel]);
+        Alert.alert(
+          'Model Created & Staged ✓',
+          `Added "${createdModel.brandName || ''} ${createdModel.name}" to the current group!`
+        );
+      } else {
+        // Append into bulk text
+        setBulkTextInput((prev) => {
+          const trimmed = prev.trim();
+          if (!trimmed) return createdModel.name;
+          if (trimmed.endsWith('=')) return `${prev} ${createdModel.name} `;
+          return `${prev} = ${createdModel.name}`;
+        });
+        Alert.alert(
+          'Model Created ✓',
+          `"${createdModel.brandName || ''} ${createdModel.name}" saved to database and added to parser!`
+        );
+      }
+
+      setInlineModelName('');
+      setInlineModelNumber('');
+      setInlineNewBrandName('');
+      setShowInlineModelForm(false);
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Cannot create model');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -510,7 +608,7 @@ function AdminAppContent() {
           />
 
           {/* Drawer Container */}
-          <View style={styles.sidebarDrawer}>
+          <View style={[styles.sidebarDrawer, { paddingBottom: Math.max(insets.bottom, 24) + 16 }]}>
             {/* Drawer Header */}
             <View style={styles.sidebarHeader}>
               <View>
@@ -558,9 +656,9 @@ function AdminAppContent() {
                 <Text style={styles.navItemIcon}>⚡</Text>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.navItemText, activeTab === 'compatibility' && styles.navItemTextActive]}>
-                    Compatibility Parser
+                    Compatibility Studio
                   </Text>
-                  <Text style={styles.navItemDesc}>Bulk multiline '=' publish</Text>
+                  <Text style={styles.navItemDesc}>All-in-one on-the-go pairing</Text>
                 </View>
                 {activeTab === 'compatibility' && <View style={styles.activePill} />}
               </TouchableOpacity>
@@ -638,7 +736,7 @@ function AdminAppContent() {
             </ScrollView>
 
             {/* Drawer Footer */}
-            <View style={styles.sidebarFooter}>
+            <View style={[styles.sidebarFooter, { paddingBottom: Math.max(insets.bottom, 12) }]}>
               <TouchableOpacity
                 style={styles.sidebarLogoutBtn}
                 onPress={() => {
@@ -698,20 +796,67 @@ function AdminAppContent() {
             {/* Mode A: Bulk Text Parser */}
             {compatMode === 'parser' && (
               <View>
-                <Text style={[typography.h3, { marginBottom: 6 }]}>
-                  Bulk Compatibility Text Parser
+                <Text style={[typography.h3, { marginBottom: 4 }]}>
+                  ⚡ Bulk Compatibility Text Parser
                 </Text>
-                <Text style={[typography.bodySecondary, { marginBottom: 14 }]}>
-                  Select category, then paste lines with '=' separating models (e.g.{' '}
+                <Text style={[typography.bodySecondary, { marginBottom: 12 }]}>
+                  Type or paste models separated by '=' (e.g.{' '}
                   <Text style={{ fontWeight: 'bold' }}>
                     Redmi Note 10 = Redmi Note 10S = Redmi Note 11
                   </Text>
-                  ).
+                  ). New models and brands are auto-created when you publish!
                 </Text>
 
-                {/* Category Selector */}
-                <Text style={styles.label}>Select Category</Text>
+                {/* Category Selector with On-the-Go Creator */}
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <Text style={styles.label}>Select Category</Text>
+                  <TouchableOpacity onPress={() => setShowInlineCategoryForm(!showInlineCategoryForm)}>
+                    <Text style={{ color: colors.primary, fontWeight: '700', fontSize: 12 }}>
+                      {showInlineCategoryForm ? '✕ Close Form' : '➕ New Category'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {showInlineCategoryForm && (
+                  <View style={styles.inlineCreationCard}>
+                    <View style={styles.inlineCreationHeader}>
+                      <Text style={styles.inlineCreationTitle}>⚡ Create Category On-the-Go</Text>
+                      <TouchableOpacity onPress={() => setShowInlineCategoryForm(false)}>
+                        <Text style={styles.inlineCloseText}>✕</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <Text style={styles.inlineCreationDesc}>
+                      Create a spare-part category immediately without leaving this screen. It will be auto-selected for pairing.
+                    </Text>
+                    <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
+                      <TextInput
+                        style={[styles.input, { flex: 1 }]}
+                        placeholder="e.g. Charging Flex, Camera Lens, Battery"
+                        value={inlineCategoryName}
+                        onChangeText={setInlineCategoryName}
+                      />
+                      <TouchableOpacity
+                        style={[styles.smallBtn, { backgroundColor: colors.primary, paddingHorizontal: 14 }]}
+                        onPress={handleCreateInlineCategory}
+                        disabled={loading}
+                      >
+                        {loading ? (
+                          <ActivityIndicator color="#fff" size="small" />
+                        ) : (
+                          <Text style={{ color: '#fff', fontWeight: '700', fontSize: 12 }}>Create & Select</Text>
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 14 }}>
+                  <TouchableOpacity
+                    style={[styles.chip, styles.chipNew]}
+                    onPress={() => setShowInlineCategoryForm(true)}
+                  >
+                    <Text style={styles.chipNewText}>➕ New Category</Text>
+                  </TouchableOpacity>
                   {categories.map((c) => (
                     <TouchableOpacity
                       key={c.id}
@@ -732,6 +877,95 @@ function AdminAppContent() {
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
+
+                {/* Quick Add Model / Brand on the go */}
+                <TouchableOpacity
+                  style={styles.inlineActionBtn}
+                  onPress={() => setShowInlineModelForm(!showInlineModelForm)}
+                >
+                  <Text style={styles.inlineActionBtnText}>
+                    {showInlineModelForm ? '✕ Close Quick Model Creator' : '➕ Quick Add Missing Model / Brand to Database'}
+                  </Text>
+                </TouchableOpacity>
+
+                {showInlineModelForm && (
+                  <View style={styles.inlineCreationCard}>
+                    <View style={styles.inlineCreationHeader}>
+                      <Text style={styles.inlineCreationTitle}>📱 Add New Model / Brand to Database</Text>
+                      <TouchableOpacity onPress={() => setShowInlineModelForm(false)}>
+                        <Text style={styles.inlineCloseText}>✕</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <Text style={styles.inlineCreationDesc}>
+                      Add a missing model on-the-go without switching tabs. It will be saved into the database and inserted into your current parser text!
+                    </Text>
+
+                    <Text style={[styles.label, { marginTop: 6 }]}>Brand</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
+                      <TouchableOpacity
+                        style={[styles.chip, !inlineModelBrandId && styles.chipActive]}
+                        onPress={() => {
+                          setInlineModelBrandId('');
+                        }}
+                      >
+                        <Text style={[styles.chipText, !inlineModelBrandId && styles.chipTextActive]}>
+                          ➕ New Brand
+                        </Text>
+                      </TouchableOpacity>
+                      {brands.map((b) => (
+                        <TouchableOpacity
+                          key={b.id}
+                          style={[styles.chip, inlineModelBrandId === b.id && styles.chipActive]}
+                          onPress={() => {
+                            setInlineModelBrandId(b.id);
+                            setInlineNewBrandName('');
+                          }}
+                        >
+                          <Text style={[styles.chipText, inlineModelBrandId === b.id && styles.chipTextActive]}>
+                            {b.name}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+
+                    {!inlineModelBrandId && (
+                      <TextInput
+                        style={[styles.input, { marginBottom: 8 }]}
+                        placeholder="New Brand Name (e.g. Motorola, Poco, Nothing)"
+                        value={inlineNewBrandName}
+                        onChangeText={setInlineNewBrandName}
+                      />
+                    )}
+
+                    <TextInput
+                      style={[styles.input, { marginBottom: 8 }]}
+                      placeholder="Model Name (e.g. Redmi Note 13 Pro 5G)"
+                      value={inlineModelName}
+                      onChangeText={setInlineModelName}
+                    />
+
+                    <TextInput
+                      style={[styles.input, { marginBottom: 10 }]}
+                      placeholder="Optional Model Number (e.g. 2312DRA50G)"
+                      value={inlineModelNumber}
+                      onChangeText={setInlineModelNumber}
+                    />
+
+                    <TouchableOpacity
+                      style={[styles.button, { backgroundColor: colors.success }]}
+                      onPress={() => handleCreateInlineModelAndStage(false)}
+                      disabled={loading}
+                    >
+                      {loading ? (
+                        <ActivityIndicator color="#fff" size="small" />
+                      ) : (
+                        <Text style={[typography.button, { color: '#fff', fontSize: 13 }]}>
+                          ✓ Create & Insert Model into Parser
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                )}
 
                 <Text style={styles.label}>Compatibility Input Text</Text>
                 <TextInput
@@ -898,16 +1132,63 @@ function AdminAppContent() {
             {/* Mode B: Manual Group Pairing */}
             {compatMode === 'manual' && (
               <View>
-                <Text style={[typography.h3, { marginBottom: 6 }]}>
-                  Manual Group & Individual Pairing
+                <Text style={[typography.h3, { marginBottom: 4 }]}>
+                  🔗 Manual Group & Individual Pairing
                 </Text>
-                <Text style={[typography.bodySecondary, { marginBottom: 14 }]}>
+                <Text style={[typography.bodySecondary, { marginBottom: 12 }]}>
                   Select category, then choose 2 or more models below to link as compatible.
                 </Text>
 
-                {/* 1. Category Selector */}
-                <Text style={styles.label}>1. Select Spare Part Category</Text>
+                {/* 1. Category Selector with On-the-Go Creator */}
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <Text style={styles.label}>1. Select Spare Part Category</Text>
+                  <TouchableOpacity onPress={() => setShowInlineCategoryForm(!showInlineCategoryForm)}>
+                    <Text style={{ color: colors.primary, fontWeight: '700', fontSize: 12 }}>
+                      {showInlineCategoryForm ? '✕ Close Form' : '➕ New Category'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {showInlineCategoryForm && (
+                  <View style={styles.inlineCreationCard}>
+                    <View style={styles.inlineCreationHeader}>
+                      <Text style={styles.inlineCreationTitle}>⚡ Create Category On-the-Go</Text>
+                      <TouchableOpacity onPress={() => setShowInlineCategoryForm(false)}>
+                        <Text style={styles.inlineCloseText}>✕</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <Text style={styles.inlineCreationDesc}>
+                      Create a spare-part category immediately without leaving this screen. It will be auto-selected for pairing.
+                    </Text>
+                    <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
+                      <TextInput
+                        style={[styles.input, { flex: 1 }]}
+                        placeholder="e.g. Charging Flex, Camera Lens, Battery"
+                        value={inlineCategoryName}
+                        onChangeText={setInlineCategoryName}
+                      />
+                      <TouchableOpacity
+                        style={[styles.smallBtn, { backgroundColor: colors.primary, paddingHorizontal: 14 }]}
+                        onPress={handleCreateInlineCategory}
+                        disabled={loading}
+                      >
+                        {loading ? (
+                          <ActivityIndicator color="#fff" size="small" />
+                        ) : (
+                          <Text style={{ color: '#fff', fontWeight: '700', fontSize: 12 }}>Create & Select</Text>
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 14 }}>
+                  <TouchableOpacity
+                    style={[styles.chip, styles.chipNew]}
+                    onPress={() => setShowInlineCategoryForm(true)}
+                  >
+                    <Text style={styles.chipNewText}>➕ New Category</Text>
+                  </TouchableOpacity>
                   {categories.map((c) => (
                     <TouchableOpacity
                       key={c.id}
@@ -944,7 +1225,7 @@ function AdminAppContent() {
 
                   {manualSelectedModels.length === 0 ? (
                     <Text style={[typography.caption, { fontStyle: 'italic', paddingVertical: 8 }]}>
-                      No models selected yet. Search and tap "+ Add to Group" on models below.
+                      No models selected yet. Search below or use "+ Quick Add Model" to stage.
                     </Text>
                   ) : (
                     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
@@ -984,6 +1265,95 @@ function AdminAppContent() {
                     )}
                   </TouchableOpacity>
                 </View>
+
+                {/* On-The-Go Model Creator for Group */}
+                <TouchableOpacity
+                  style={styles.inlineActionBtn}
+                  onPress={() => setShowInlineModelForm(!showInlineModelForm)}
+                >
+                  <Text style={styles.inlineActionBtnText}>
+                    {showInlineModelForm ? '✕ Close Quick Model Creator' : '➕ Quick Add Missing Model & Stage in Group'}
+                  </Text>
+                </TouchableOpacity>
+
+                {showInlineModelForm && (
+                  <View style={styles.inlineCreationCard}>
+                    <View style={styles.inlineCreationHeader}>
+                      <Text style={styles.inlineCreationTitle}>📱 Add New Model to Group On-the-Go</Text>
+                      <TouchableOpacity onPress={() => setShowInlineModelForm(false)}>
+                        <Text style={styles.inlineCloseText}>✕</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <Text style={styles.inlineCreationDesc}>
+                      Add a missing model or brand directly from here. It will be created in the database and immediately staged in this group!
+                    </Text>
+
+                    <Text style={[styles.label, { marginTop: 6 }]}>Brand</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
+                      <TouchableOpacity
+                        style={[styles.chip, !inlineModelBrandId && styles.chipActive]}
+                        onPress={() => {
+                          setInlineModelBrandId('');
+                        }}
+                      >
+                        <Text style={[styles.chipText, !inlineModelBrandId && styles.chipTextActive]}>
+                          ➕ New Brand
+                        </Text>
+                      </TouchableOpacity>
+                      {brands.map((b) => (
+                        <TouchableOpacity
+                          key={b.id}
+                          style={[styles.chip, inlineModelBrandId === b.id && styles.chipActive]}
+                          onPress={() => {
+                            setInlineModelBrandId(b.id);
+                            setInlineNewBrandName('');
+                          }}
+                        >
+                          <Text style={[styles.chipText, inlineModelBrandId === b.id && styles.chipTextActive]}>
+                            {b.name}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+
+                    {!inlineModelBrandId && (
+                      <TextInput
+                        style={[styles.input, { marginBottom: 8 }]}
+                        placeholder="New Brand Name (e.g. Motorola, Poco, Nothing)"
+                        value={inlineNewBrandName}
+                        onChangeText={setInlineNewBrandName}
+                      />
+                    )}
+
+                    <TextInput
+                      style={[styles.input, { marginBottom: 8 }]}
+                      placeholder="Model Name (e.g. Redmi Note 13 Pro 5G)"
+                      value={inlineModelName}
+                      onChangeText={setInlineModelName}
+                    />
+
+                    <TextInput
+                      style={[styles.input, { marginBottom: 10 }]}
+                      placeholder="Optional Model Number (e.g. 2312DRA50G)"
+                      value={inlineModelNumber}
+                      onChangeText={setInlineModelNumber}
+                    />
+
+                    <TouchableOpacity
+                      style={[styles.button, { backgroundColor: colors.success }]}
+                      onPress={() => handleCreateInlineModelAndStage(true)}
+                      disabled={loading}
+                    >
+                      {loading ? (
+                        <ActivityIndicator color="#fff" size="small" />
+                      ) : (
+                        <Text style={[typography.button, { color: '#fff', fontSize: 13 }]}>
+                          ✓ Create & Stage Model in Group
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                )}
 
                 {/* 3. Catalog Picker */}
                 <Text style={[styles.label, { marginTop: 14 }]}>3. Pick Models from Database</Text>
@@ -1338,51 +1708,114 @@ function AdminAppContent() {
         {/* 5. Users Tab */}
         {activeTab === 'users' && (
           <View>
-            <Text style={[typography.h3, { marginBottom: 12 }]}>Registered Users</Text>
-            {usersList.map((u) => (
-              <View key={u.id} style={styles.listItem}>
-                <View>
-                  <Text style={{ fontWeight: '600', color: colors.textPrimary }}>
-                    {u.name} ({u.email})
-                  </Text>
-                  <Text style={typography.caption}>
-                    Shop: {u.shopName || 'N/A'} | City: {u.city || 'N/A'} | Status:{' '}
-                    {u.status}
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  style={[
-                    styles.smallBtn,
-                    {
-                      backgroundColor:
-                        u.status === 'active' ? colors.errorBg : colors.successBg,
-                    },
-                  ]}
-                  onPress={async () => {
-                    try {
-                      if (u.status === 'active') {
-                        await adminApi.deactivateUser(u.id);
-                      } else {
-                        await adminApi.reactivateUser(u.id);
-                      }
-                      loadUsers();
-                    } catch (e: any) {
-                      Alert.alert('Error', e.message || 'Cannot update user status');
-                    }
-                  }}
-                >
-                  <Text
-                    style={{
-                      color: u.status === 'active' ? colors.error : colors.success,
-                      fontSize: 12,
-                      fontWeight: '600',
-                    }}
-                  >
-                    {u.status === 'active' ? 'Deactivate' : 'Reactivate'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            ))}
+            <Text style={[typography.h3, { marginBottom: 4 }]}>
+              Technician Accounts ({usersList.length})
+            </Text>
+            <Text style={[typography.bodySecondary, { marginBottom: 12 }]}>
+              Manage registered mobile technicians, verify shop details, and audit accounts.
+            </Text>
+
+            {/* Search Filter */}
+            <TextInput
+              style={[styles.input, { marginBottom: 12 }]}
+              placeholder="Search technician by name, email, shop, or city..."
+              value={userSearchQuery}
+              onChangeText={setUserSearchQuery}
+            />
+
+            {usersList
+              .filter((u) => {
+                if (!userSearchQuery.trim()) return true;
+                const q = userSearchQuery.toLowerCase();
+                return (
+                  u.name?.toLowerCase().includes(q) ||
+                  u.email?.toLowerCase().includes(q) ||
+                  u.shopName?.toLowerCase().includes(q) ||
+                  u.city?.toLowerCase().includes(q) ||
+                  u.phone?.toLowerCase().includes(q)
+                );
+              })
+              .map((u) => {
+                const isDeleted = u.status === 'deleted';
+                return (
+                  <View key={u.id} style={styles.listItem}>
+                    <View style={{ flex: 1, marginRight: 10 }}>
+                      <Text
+                        style={{
+                          fontWeight: '700',
+                          color: isDeleted ? colors.textMuted : colors.textPrimary,
+                        }}
+                        numberOfLines={1}
+                      >
+                        {u.name || (isDeleted ? 'Deleted User' : 'Unnamed Technician')}
+                      </Text>
+                      <Text
+                        style={{
+                          fontSize: 12,
+                          color: isDeleted ? colors.textMuted : colors.textSecondary,
+                        }}
+                        numberOfLines={1}
+                      >
+                        {u.email}
+                      </Text>
+                      <Text style={[typography.caption, { marginTop: 2 }]} numberOfLines={1}>
+                        Shop: {u.shopName || 'N/A'} • City: {u.city || 'N/A'} • Status:{' '}
+                        <Text
+                          style={{
+                            fontWeight: '700',
+                            color:
+                              u.status === 'active'
+                                ? colors.success
+                                : isDeleted
+                                ? colors.textMuted
+                                : colors.error,
+                          }}
+                        >
+                          {u.status}
+                        </Text>
+                      </Text>
+                    </View>
+
+                    {isDeleted ? (
+                      <View style={styles.deletedBadge}>
+                        <Text style={styles.deletedBadgeText}>🗑️ Deleted User</Text>
+                      </View>
+                    ) : (
+                      <TouchableOpacity
+                        style={[
+                          styles.smallBtn,
+                          {
+                            backgroundColor:
+                              u.status === 'active' ? colors.errorBg : colors.successBg,
+                          },
+                        ]}
+                        onPress={async () => {
+                          try {
+                            if (u.status === 'active') {
+                              await adminApi.deactivateUser(u.id);
+                            } else {
+                              await adminApi.reactivateUser(u.id);
+                            }
+                            loadUsers();
+                          } catch (e: any) {
+                            Alert.alert('Error', e.message || 'Cannot update user status');
+                          }
+                        }}
+                      >
+                        <Text
+                          style={{
+                            color: u.status === 'active' ? colors.error : colors.success,
+                            fontSize: 12,
+                            fontWeight: '600',
+                          }}
+                        >
+                          {u.status === 'active' ? 'Deactivate' : 'Reactivate'}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                );
+              })}
           </View>
         )}
 
@@ -1524,30 +1957,77 @@ function AdminAppContent() {
             </View>
 
             <Text style={[typography.h3, { marginBottom: 12 }]}>
-              Allowlisted Administrators
+              Allowlisted Administrators ({adminsList.length})
             </Text>
-            {adminsList.map((adm) => (
-              <View key={adm.id} style={styles.listItem}>
-                <Text style={{ fontWeight: '600', color: colors.textPrimary }}>
-                  {adm.emailNormalized}
-                </Text>
-                <TouchableOpacity
-                  style={[styles.smallBtn, { backgroundColor: colors.errorBg }]}
-                  onPress={async () => {
-                    try {
-                      await adminApi.removeAdmin(adm.id);
-                      loadAdmins();
-                    } catch (e: any) {
-                      Alert.alert('Error', e.message || 'Cannot remove admin');
-                    }
-                  }}
-                >
-                  <Text style={{ color: colors.error, fontSize: 12, fontWeight: '600' }}>
-                    Remove
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            ))}
+            {adminsList.map((adm) => {
+              const isSelf =
+                currentUser?.email &&
+                adm.emailNormalized.toLowerCase() === currentUser.email.toLowerCase().trim();
+              const isEnvAdmin =
+                adm.emailNormalized.toLowerCase() === 'admin@mobimatch.local' ||
+                adm.emailNormalized.toLowerCase() === 'jaisinghrajput9461@gmail.com' ||
+                (appConfig &&
+                  adm.emailNormalized.toLowerCase() ===
+                    (appConfig as any).initialAdminEmail?.toLowerCase());
+
+              return (
+                <View key={adm.id} style={styles.listItem}>
+                  <View style={{ flex: 1, marginRight: 10 }}>
+                    <Text style={{ fontWeight: '700', color: colors.textPrimary }} numberOfLines={1}>
+                      {adm.emailNormalized}
+                    </Text>
+                    {isSelf ? (
+                      <Text style={{ fontSize: 11, color: colors.primary, fontWeight: '600', marginTop: 2 }}>
+                        Your Account (Active Session)
+                      </Text>
+                    ) : isEnvAdmin ? (
+                      <Text style={{ fontSize: 11, color: '#D97706', fontWeight: '600', marginTop: 2 }}>
+                        Primary System Administrator
+                      </Text>
+                    ) : null}
+                  </View>
+
+                  {isSelf ? (
+                    <View style={styles.selfAdminBadge}>
+                      <Text style={styles.selfAdminBadgeText}>👤 You</Text>
+                    </View>
+                  ) : isEnvAdmin ? (
+                    <View style={styles.envAdminBadge}>
+                      <Text style={styles.envAdminBadgeText}>🛡️ Primary</Text>
+                    </View>
+                  ) : (
+                    <TouchableOpacity
+                      style={[styles.smallBtn, { backgroundColor: colors.errorBg }]}
+                      onPress={async () => {
+                        Alert.alert(
+                          'Remove Administrator',
+                          `Are you sure you want to remove ${adm.emailNormalized} from the admin allowlist?`,
+                          [
+                            { text: 'Cancel', style: 'cancel' },
+                            {
+                              text: 'Remove',
+                              style: 'destructive',
+                              onPress: async () => {
+                                try {
+                                  await adminApi.removeAdmin(adm.id);
+                                  loadAdmins();
+                                } catch (e: any) {
+                                  Alert.alert('Error', e.message || 'Cannot remove admin');
+                                }
+                              },
+                            },
+                          ]
+                        );
+                      }}
+                    >
+                      <Text style={{ color: colors.error, fontSize: 12, fontWeight: '600' }}>
+                        Remove
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              );
+            })}
           </View>
         )}
 
@@ -1950,12 +2430,112 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primaryLight,
     borderColor: colors.primary,
   },
+  chipNew: {
+    backgroundColor: colors.primaryLight,
+    borderColor: colors.primary,
+    borderStyle: 'dashed',
+  },
+  chipNewText: {
+    color: colors.primary,
+    fontWeight: '700',
+    fontSize: 13,
+  },
   chipText: {
     fontSize: 13,
     color: colors.textSecondary,
   },
   chipTextActive: {
     color: colors.primary,
+    fontWeight: '700',
+  },
+  inlineCreationCard: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    padding: 12,
+    marginBottom: 14,
+  },
+  inlineCreationHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  inlineCreationTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: colors.primaryDark,
+  },
+  inlineCloseText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.textSecondary,
+    padding: 4,
+  },
+  inlineCreationDesc: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginBottom: 6,
+  },
+  inlineActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surface,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    borderStyle: 'dashed',
+    marginVertical: 10,
+  },
+  inlineActionBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  deletedBadge: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    flexShrink: 0,
+  },
+  deletedBadgeText: {
+    color: '#64748B',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  selfAdminBadge: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    backgroundColor: colors.primaryLight,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    flexShrink: 0,
+  },
+  selfAdminBadgeText: {
+    color: colors.primary,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  envAdminBadge: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    backgroundColor: '#FEF3C7',
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#F59E0B',
+    flexShrink: 0,
+  },
+  envAdminBadgeText: {
+    color: '#B45309',
+    fontSize: 11,
     fontWeight: '700',
   },
   previewBox: {

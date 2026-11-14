@@ -1,6 +1,7 @@
 import { FastifyInstance, FastifyPluginAsync } from 'fastify';
 import { eq, desc, sql } from 'drizzle-orm';
 import { z } from 'zod';
+import { config } from '../../config';
 import { getDb } from '../../db';
 import {
   users,
@@ -501,7 +502,28 @@ export const adminRoutes: FastifyPluginAsync = async (server: FastifyInstance) =
   server.delete<{ Params: { id: string } }>('/v1/admin/admins/:id', async (req, reply) => {
     const db = getDb();
 
-    // Prevent removing the final administrator
+    // 1. Find the target entry to be removed
+    const targetAdmin = await db
+      .select({ id: adminAllowlist.id, emailNormalized: adminAllowlist.emailNormalized })
+      .from(adminAllowlist)
+      .where(eq(adminAllowlist.id, req.params.id))
+      .limit(1);
+
+    if (targetAdmin.length === 0) {
+      return reply.status(404).send({
+        error: {
+          code: 'ADMIN_NOT_FOUND',
+          message: 'Admin allowlist entry not found',
+          requestId: req.id,
+        },
+      });
+    }
+
+    const targetEmail = targetAdmin[0].emailNormalized;
+    const currentAdminEmail = req.user.email.trim().toLowerCase();
+    const envAdminEmail = (config.initialAdminEmail || '').trim().toLowerCase();
+
+    // 2. Prevent removing the final administrator
     const countRes = await db
       .select({ count: sql<number>`count(*)` })
       .from(adminAllowlist);
@@ -512,6 +534,28 @@ export const adminRoutes: FastifyPluginAsync = async (server: FastifyInstance) =
         error: {
           code: 'CANNOT_REMOVE_LAST_ADMIN',
           message: 'Cannot remove the last administrator from the allowlist',
+          requestId: req.id,
+        },
+      });
+    }
+
+    // 3. Prevent removing yourself
+    if (targetEmail === currentAdminEmail) {
+      return reply.status(400).send({
+        error: {
+          code: 'CANNOT_REMOVE_SELF',
+          message: 'You cannot remove your own administrator account from the allowlist',
+          requestId: req.id,
+        },
+      });
+    }
+
+    // 4. Prevent removing the environment / primary administrator
+    if (envAdminEmail && targetEmail === envAdminEmail) {
+      return reply.status(400).send({
+        error: {
+          code: 'CANNOT_REMOVE_ENV_ADMIN',
+          message: `Cannot remove the primary environment administrator (${envAdminEmail}) from the allowlist`,
           requestId: req.id,
         },
       });
