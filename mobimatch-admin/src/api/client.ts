@@ -270,6 +270,42 @@ class AdminApiClient {
       method: 'DELETE',
     });
   }
+
+  // Advertisement & Monetization
+  async getAdSettings(): Promise<any> {
+    return this.request('/v1/admin/ads/settings');
+  }
+
+  async updateAdSettings(data: any): Promise<any> {
+    return this.request('/v1/admin/ads/settings', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getCustomBanners(): Promise<any[]> {
+    return this.request('/v1/admin/ads/banners');
+  }
+
+  async createCustomBanner(data: any): Promise<any> {
+    return this.request('/v1/admin/ads/banners', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateCustomBanner(id: string, data: any): Promise<any> {
+    return this.request(`/v1/admin/ads/banners/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteCustomBanner(id: string): Promise<any> {
+    return this.request(`/v1/admin/ads/banners/${id}`, {
+      method: 'DELETE',
+    });
+  }
 }
 
 export const adminApi = new AdminApiClient();

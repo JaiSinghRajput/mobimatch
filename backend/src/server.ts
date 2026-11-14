@@ -13,6 +13,7 @@ import { catalogRoutes } from './modules/catalog';
 import { compatibilityRoutes } from './modules/compatibility';
 import { reportRoutes } from './modules/reports';
 import { adminRoutes } from './modules/admins';
+import { adsRoutes } from './modules/ads';
 import './types';
 
 export function buildServer(): FastifyInstance {
@@ -79,6 +80,7 @@ export function buildServer(): FastifyInstance {
   server.register(compatibilityRoutes);
   server.register(reportRoutes);
   server.register(adminRoutes);
+  server.register(adsRoutes);
 
   return server;
 }

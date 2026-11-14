@@ -1293,4 +1293,141 @@ export declare const AppConfigResponseSchema: z.ZodObject<{
     accountDeletionUrl: string;
 }>;
 export type AppConfigResponse = z.infer<typeof AppConfigResponseSchema>;
+export declare const AdSettingsSchema: z.ZodObject<{
+    id: z.ZodOptional<z.ZodString>;
+    adsEnabled: z.ZodBoolean;
+    adProvider: z.ZodString;
+    admobAppId: z.ZodString;
+    admobBannerId: z.ZodString;
+    admobInterstitialId: z.ZodString;
+    admobRewardedId: z.ZodString;
+    showOnHome: z.ZodBoolean;
+    showOnResults: z.ZodBoolean;
+    showOnCatalog: z.ZodBoolean;
+    bannerRefreshIntervalSec: z.ZodNumber;
+    updatedAt: z.ZodOptional<z.ZodString>;
+}, "strip", z.ZodTypeAny, {
+    adsEnabled: boolean;
+    adProvider: string;
+    admobAppId: string;
+    admobBannerId: string;
+    admobInterstitialId: string;
+    admobRewardedId: string;
+    showOnHome: boolean;
+    showOnResults: boolean;
+    showOnCatalog: boolean;
+    bannerRefreshIntervalSec: number;
+    id?: string | undefined;
+    updatedAt?: string | undefined;
+}, {
+    adsEnabled: boolean;
+    adProvider: string;
+    admobAppId: string;
+    admobBannerId: string;
+    admobInterstitialId: string;
+    admobRewardedId: string;
+    showOnHome: boolean;
+    showOnResults: boolean;
+    showOnCatalog: boolean;
+    bannerRefreshIntervalSec: number;
+    id?: string | undefined;
+    updatedAt?: string | undefined;
+}>;
+export type AdSettings = z.infer<typeof AdSettingsSchema>;
+export declare const UpdateAdSettingsRequestSchema: z.ZodObject<{
+    adsEnabled: z.ZodOptional<z.ZodBoolean>;
+    adProvider: z.ZodOptional<z.ZodString>;
+    admobAppId: z.ZodOptional<z.ZodString>;
+    admobBannerId: z.ZodOptional<z.ZodString>;
+    admobInterstitialId: z.ZodOptional<z.ZodString>;
+    admobRewardedId: z.ZodOptional<z.ZodString>;
+    showOnHome: z.ZodOptional<z.ZodBoolean>;
+    showOnResults: z.ZodOptional<z.ZodBoolean>;
+    showOnCatalog: z.ZodOptional<z.ZodBoolean>;
+    bannerRefreshIntervalSec: z.ZodOptional<z.ZodNumber>;
+}, "strip", z.ZodTypeAny, {
+    adsEnabled?: boolean | undefined;
+    adProvider?: string | undefined;
+    admobAppId?: string | undefined;
+    admobBannerId?: string | undefined;
+    admobInterstitialId?: string | undefined;
+    admobRewardedId?: string | undefined;
+    showOnHome?: boolean | undefined;
+    showOnResults?: boolean | undefined;
+    showOnCatalog?: boolean | undefined;
+    bannerRefreshIntervalSec?: number | undefined;
+}, {
+    adsEnabled?: boolean | undefined;
+    adProvider?: string | undefined;
+    admobAppId?: string | undefined;
+    admobBannerId?: string | undefined;
+    admobInterstitialId?: string | undefined;
+    admobRewardedId?: string | undefined;
+    showOnHome?: boolean | undefined;
+    showOnResults?: boolean | undefined;
+    showOnCatalog?: boolean | undefined;
+    bannerRefreshIntervalSec?: number | undefined;
+}>;
+export type UpdateAdSettingsRequest = z.infer<typeof UpdateAdSettingsRequestSchema>;
+export declare const CustomBannerSchema: z.ZodObject<{
+    id: z.ZodString;
+    title: z.ZodString;
+    description: z.ZodString;
+    imageUrl: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    targetUrl: z.ZodString;
+    placement: z.ZodString;
+    isActive: z.ZodBoolean;
+    clickCount: z.ZodNumber;
+    impressionCount: z.ZodNumber;
+    createdAt: z.ZodString;
+    updatedAt: z.ZodOptional<z.ZodString>;
+}, "strip", z.ZodTypeAny, {
+    id: string;
+    createdAt: string;
+    isActive: boolean;
+    description: string;
+    title: string;
+    targetUrl: string;
+    placement: string;
+    clickCount: number;
+    impressionCount: number;
+    updatedAt?: string | undefined;
+    imageUrl?: string | null | undefined;
+}, {
+    id: string;
+    createdAt: string;
+    isActive: boolean;
+    description: string;
+    title: string;
+    targetUrl: string;
+    placement: string;
+    clickCount: number;
+    impressionCount: number;
+    updatedAt?: string | undefined;
+    imageUrl?: string | null | undefined;
+}>;
+export type CustomBanner = z.infer<typeof CustomBannerSchema>;
+export declare const CreateCustomBannerRequestSchema: z.ZodObject<{
+    title: z.ZodString;
+    description: z.ZodString;
+    imageUrl: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    targetUrl: z.ZodString;
+    placement: z.ZodDefault<z.ZodString>;
+    isActive: z.ZodDefault<z.ZodBoolean>;
+}, "strip", z.ZodTypeAny, {
+    isActive: boolean;
+    description: string;
+    title: string;
+    targetUrl: string;
+    placement: string;
+    imageUrl?: string | null | undefined;
+}, {
+    description: string;
+    title: string;
+    targetUrl: string;
+    isActive?: boolean | undefined;
+    imageUrl?: string | null | undefined;
+    placement?: string | undefined;
+}>;
+export type CreateCustomBannerRequest = z.infer<typeof CreateCustomBannerRequestSchema>;
 //# sourceMappingURL=types.d.ts.map

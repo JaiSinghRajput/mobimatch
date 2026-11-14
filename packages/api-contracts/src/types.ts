@@ -337,3 +337,62 @@ export const AppConfigResponseSchema = z.object({
 });
 export type AppConfigResponse = z.infer<typeof AppConfigResponseSchema>;
 
+// ==========================================
+// Advertisement Management
+// ==========================================
+
+export const AdSettingsSchema = z.object({
+  id: z.string().uuid().optional(),
+  adsEnabled: z.boolean(),
+  adProvider: z.string(),
+  admobAppId: z.string(),
+  admobBannerId: z.string(),
+  admobInterstitialId: z.string(),
+  admobRewardedId: z.string(),
+  showOnHome: z.boolean(),
+  showOnResults: z.boolean(),
+  showOnCatalog: z.boolean(),
+  bannerRefreshIntervalSec: z.number().int(),
+  updatedAt: z.string().optional(),
+});
+export type AdSettings = z.infer<typeof AdSettingsSchema>;
+
+export const UpdateAdSettingsRequestSchema = z.object({
+  adsEnabled: z.boolean().optional(),
+  adProvider: z.string().optional(),
+  admobAppId: z.string().optional(),
+  admobBannerId: z.string().optional(),
+  admobInterstitialId: z.string().optional(),
+  admobRewardedId: z.string().optional(),
+  showOnHome: z.boolean().optional(),
+  showOnResults: z.boolean().optional(),
+  showOnCatalog: z.boolean().optional(),
+  bannerRefreshIntervalSec: z.number().int().optional(),
+});
+export type UpdateAdSettingsRequest = z.infer<typeof UpdateAdSettingsRequestSchema>;
+
+export const CustomBannerSchema = z.object({
+  id: z.string().uuid(),
+  title: z.string(),
+  description: z.string(),
+  imageUrl: z.string().nullable().optional(),
+  targetUrl: z.string(),
+  placement: z.string(),
+  isActive: z.boolean(),
+  clickCount: z.number().int(),
+  impressionCount: z.number().int(),
+  createdAt: z.string(),
+  updatedAt: z.string().optional(),
+});
+export type CustomBanner = z.infer<typeof CustomBannerSchema>;
+
+export const CreateCustomBannerRequestSchema = z.object({
+  title: z.string().min(1),
+  description: z.string().min(1),
+  imageUrl: z.string().nullable().optional(),
+  targetUrl: z.string().min(1),
+  placement: z.string().default('all'),
+  isActive: z.boolean().default(true),
+});
+export type CreateCustomBannerRequest = z.infer<typeof CreateCustomBannerRequestSchema>;
+

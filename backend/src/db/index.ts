@@ -363,6 +363,51 @@ export async function runMigrations(): Promise<void> {
         console.log(`Bootstrapped initial admin allowlist entry for: ${normalizedEmail}`);
       }
     }
+
+    // 3. Ad Settings & Custom Banners Tables
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS ad_settings (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          ads_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+          ad_provider TEXT NOT NULL DEFAULT 'admob',
+          admob_app_id TEXT NOT NULL DEFAULT 'ca-app-pub-3940256099942544~3347511713',
+          admob_banner_id TEXT NOT NULL DEFAULT 'ca-app-pub-3940256099942544/6300978111',
+          admob_interstitial_id TEXT NOT NULL DEFAULT 'ca-app-pub-3940256099942544/1033173712',
+          admob_rewarded_id TEXT NOT NULL DEFAULT 'ca-app-pub-3940256099942544/5224354917',
+          show_on_home BOOLEAN NOT NULL DEFAULT TRUE,
+          show_on_results BOOLEAN NOT NULL DEFAULT TRUE,
+          show_on_catalog BOOLEAN NOT NULL DEFAULT TRUE,
+          banner_refresh_interval_sec INTEGER NOT NULL DEFAULT 30,
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS custom_banners (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          title TEXT NOT NULL,
+          description TEXT NOT NULL,
+          image_url TEXT,
+          target_url TEXT NOT NULL,
+          placement TEXT NOT NULL DEFAULT 'all',
+          is_active BOOLEAN NOT NULL DEFAULT TRUE,
+          click_count INTEGER NOT NULL DEFAULT 0,
+          impression_count INTEGER NOT NULL DEFAULT 0,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
+
+    // Ensure initial ad_settings row exists
+    const adSettingsCheck = await client.query('SELECT id FROM ad_settings LIMIT 1');
+    if (adSettingsCheck.rowCount === 0) {
+      await client.query(`
+        INSERT INTO ad_settings (
+          ads_enabled, ad_provider, admob_app_id, admob_banner_id, admob_interstitial_id, admob_rewarded_id, show_on_home, show_on_results, show_on_catalog
+        ) VALUES (
+          true, 'admob', 'ca-app-pub-3940256099942544~3347511713', 'ca-app-pub-3940256099942544/6300978111', 'ca-app-pub-3940256099942544/1033173712', 'ca-app-pub-3940256099942544/5224354917', true, true, true
+        )
+      `);
+      console.log('Bootstrapped initial AdMob advertisement settings.');
+    }
   } finally {
     client.release();
   }

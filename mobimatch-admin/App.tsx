@@ -28,7 +28,8 @@ type AdminTab =
   | 'users'
   | 'reports'
   | 'requests'
-  | 'allowlist';
+  | 'allowlist'
+  | 'ads';
 
 function AdminAppContent() {
   const insets = useSafeAreaInsets();
@@ -50,6 +51,7 @@ function AdminAppContent() {
       case 'reports': return 'Issue Reports';
       case 'requests': return 'Missing Model Requests';
       case 'allowlist': return 'Admin Allowlist';
+      case 'ads': return 'Advertisement & Monetization';
       default: return 'Admin Dashboard';
     }
   };
@@ -64,6 +66,7 @@ function AdminAppContent() {
       case 'reports': return '⚠️';
       case 'requests': return '❓';
       case 'allowlist': return '🛡️';
+      case 'ads': return '📢';
       default: return '⚙️';
     }
   };
@@ -112,6 +115,32 @@ function AdminAppContent() {
   const [newModelNumber, setNewModelNumber] = useState('');
   const [newAdminEmail, setNewAdminEmail] = useState('');
 
+  // Advertisement & Monetization States
+  const [adSettingsData, setAdSettingsData] = useState<any>({
+    adsEnabled: true,
+    adProvider: 'admob',
+    admobAppId: 'ca-app-pub-3940256099942544~3347511713',
+    admobBannerId: 'ca-app-pub-3940256099942544/6300978111',
+    admobInterstitialId: 'ca-app-pub-3940256099942544/1033173712',
+    admobRewardedId: 'ca-app-pub-3940256099942544/5224354917',
+    showOnHome: true,
+    showOnResults: true,
+    showOnCatalog: true,
+    bannerRefreshIntervalSec: 30,
+  });
+  const [customBannersList, setCustomBannersList] = useState<any[]>([]);
+  const [adsSubMode, setAdsSubMode] = useState<'admob' | 'banners' | 'preview'>('admob');
+  const [savingAdSettings, setSavingAdSettings] = useState(false);
+  const [previewPlacement, setPreviewPlacement] = useState<'home' | 'results' | 'catalog'>('home');
+
+  // Custom Banner Creation Form State
+  const [bannerTitleInput, setBannerTitleInput] = useState('');
+  const [bannerDescInput, setBannerDescInput] = useState('');
+  const [bannerImageInput, setBannerImageInput] = useState('');
+  const [bannerTargetInput, setBannerTargetInput] = useState('');
+  const [bannerPlacementSelect, setBannerPlacementSelect] = useState<'all' | 'home' | 'results' | 'catalog'>('all');
+  const [creatingBanner, setCreatingBanner] = useState(false);
+
   // Initial Config Check
   useEffect(() => {
     adminApi
@@ -142,6 +171,9 @@ function AdminAppContent() {
     }
     if (activeTab === 'allowlist') {
       loadAdmins();
+    }
+    if (activeTab === 'ads') {
+      loadAds();
     }
   }, [currentUser, activeTab]);
 
@@ -239,6 +271,107 @@ function AdminAppContent() {
     } catch (e: any) {
       console.warn(e.message);
     }
+  };
+
+  const loadAds = async () => {
+    try {
+      const [settings, banners] = await Promise.all([
+        adminApi.getAdSettings().catch(() => null),
+        adminApi.getCustomBanners().catch(() => []),
+      ]);
+      if (settings) {
+        setAdSettingsData(settings);
+      }
+      if (Array.isArray(banners)) {
+        setCustomBannersList(banners);
+      }
+    } catch (e: any) {
+      console.warn('Failed to load ads:', e.message);
+    }
+  };
+
+  const handleSaveAdSettings = async () => {
+    setSavingAdSettings(true);
+    try {
+      const updated = await adminApi.updateAdSettings(adSettingsData);
+      setAdSettingsData(updated);
+      Alert.alert('Settings Saved ✓', 'AdMob & monetization configuration applied successfully across apps.');
+    } catch (e: any) {
+      Alert.alert('Save Error', e.message || 'Failed to save ad settings');
+    } finally {
+      setSavingAdSettings(false);
+    }
+  };
+
+  const handleLoadOfficialTestIds = () => {
+    setAdSettingsData((prev: any) => ({
+      ...prev,
+      admobAppId: 'ca-app-pub-3940256099942544~3347511713',
+      admobBannerId: 'ca-app-pub-3940256099942544/6300978111',
+      admobInterstitialId: 'ca-app-pub-3940256099942544/1033173712',
+      admobRewardedId: 'ca-app-pub-3940256099942544/5224354917',
+    }));
+    Alert.alert('Test IDs Loaded ✓', 'Official Google AdMob sample IDs loaded. Safe for testing without ad policy violations.');
+  };
+
+  const handleCreateCustomBanner = async () => {
+    if (!bannerTitleInput.trim() || !bannerDescInput.trim() || !bannerTargetInput.trim()) {
+      Alert.alert('Required Fields', 'Please fill in banner title, description, and target URL or WhatsApp link.');
+      return;
+    }
+    setCreatingBanner(true);
+    try {
+      await adminApi.createCustomBanner({
+        title: bannerTitleInput.trim(),
+        description: bannerDescInput.trim(),
+        imageUrl: bannerImageInput.trim() || null,
+        targetUrl: bannerTargetInput.trim(),
+        placement: bannerPlacementSelect,
+        isActive: true,
+      });
+      setBannerTitleInput('');
+      setBannerDescInput('');
+      setBannerImageInput('');
+      setBannerTargetInput('');
+      setBannerPlacementSelect('all');
+      loadAds();
+      Alert.alert('Banner Created ✓', 'House promotion banner published successfully.');
+    } catch (e: any) {
+      Alert.alert('Create Error', e.message || 'Failed to create banner');
+    } finally {
+      setCreatingBanner(false);
+    }
+  };
+
+  const handleToggleBannerActive = async (banner: any) => {
+    try {
+      await adminApi.updateCustomBanner(banner.id, { isActive: !banner.isActive });
+      loadAds();
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Failed to toggle banner status');
+    }
+  };
+
+  const handleDeleteBanner = (banner: any) => {
+    Alert.alert(
+      'Delete Banner',
+      `Are you sure you want to delete "${banner.title}"?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await adminApi.deleteCustomBanner(banner.id);
+              loadAds();
+            } catch (e: any) {
+              Alert.alert('Error', e.message || 'Failed to delete banner');
+            }
+          },
+        },
+      ]
+    );
   };
 
   // On-The-Go Inline Creation Handlers
@@ -774,6 +907,25 @@ function AdminAppContent() {
                   {activeTab === item.key && <View style={styles.activePill} />}
                 </TouchableOpacity>
               ))}
+
+              <Text style={styles.navSectionHeader}>MONETIZATION & ADS</Text>
+              <TouchableOpacity
+                style={[styles.navItem, activeTab === 'ads' && styles.navItemActive]}
+                onPress={() => {
+                  setActiveTab('ads');
+                  setPreview(null);
+                  setSidebarOpen(false);
+                }}
+              >
+                <Text style={styles.navItemIcon}>📢</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.navItemText, activeTab === 'ads' && styles.navItemTextActive]}>
+                    Ads & Monetization
+                  </Text>
+                  <Text style={styles.navItemDesc}>Google AdMob & house banners</Text>
+                </View>
+                {activeTab === 'ads' && <View style={styles.activePill} />}
+              </TouchableOpacity>
 
               <Text style={styles.navSectionHeader}>SECURITY & ACCESS</Text>
               <TouchableOpacity
@@ -2294,6 +2446,548 @@ function AdminAppContent() {
           </View>
         )}
 
+        {/* 9. Advertisement & Monetization Tab */}
+        {activeTab === 'ads' && (
+          <View>
+            {/* Master Control Banner */}
+            <View style={styles.adMasterCard}>
+              <View style={{ flex: 1, marginRight: 12 }}>
+                <Text style={styles.adMasterTitle}>Monetization & Ads Control</Text>
+                <Text style={styles.adMasterSubtitle}>
+                  {adSettingsData.adsEnabled
+                    ? '🟢 Advertisements are currently ACTIVE in the technician app.'
+                    : '🔴 Advertisements are currently PAUSED across all screens.'}
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={[
+                  styles.adMasterToggle,
+                  { backgroundColor: adSettingsData.adsEnabled ? '#10B981' : '#64748B' },
+                ]}
+                onPress={() => {
+                  setAdSettingsData((prev: any) => ({
+                    ...prev,
+                    adsEnabled: !prev.adsEnabled,
+                  }));
+                }}
+              >
+                <Text style={styles.adMasterToggleText}>
+                  {adSettingsData.adsEnabled ? 'ON' : 'OFF'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Provider Strategy & Screen Placements */}
+            <View style={styles.card}>
+              <Text style={styles.adFieldLabel}>Ad Delivery Mode</Text>
+              <View style={styles.adPlacementRow}>
+                {[
+                  { key: 'admob', label: '🎯 Google AdMob', desc: 'Official network' },
+                  { key: 'custom', label: '🏷️ House Only', desc: 'Jhankar promotions' },
+                  { key: 'hybrid', label: '⚡ Hybrid', desc: 'AdMob & house promos' },
+                ].map((item) => (
+                  <TouchableOpacity
+                    key={item.key}
+                    style={[
+                      styles.adModePill,
+                      adSettingsData.adProvider === item.key && styles.adModePillActive,
+                    ]}
+                    onPress={() => {
+                      setAdSettingsData((prev: any) => ({
+                        ...prev,
+                        adProvider: item.key,
+                      }));
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.adModePillText,
+                        adSettingsData.adProvider === item.key && styles.adModePillTextActive,
+                      ]}
+                    >
+                      {item.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={[styles.adFieldLabel, { marginTop: 14 }]}>Screen Placements</Text>
+              <View style={styles.adPlacementRow}>
+                {[
+                  { key: 'showOnHome', label: '🏠 Home Screen' },
+                  { key: 'showOnResults', label: '🔍 Search Results' },
+                  { key: 'showOnCatalog', label: '📂 Spare Catalog' },
+                ].map((item) => {
+                  const isChecked = !!adSettingsData[item.key];
+                  return (
+                    <TouchableOpacity
+                      key={item.key}
+                      style={[
+                        styles.adScreenPill,
+                        isChecked && styles.adScreenPillActive,
+                      ]}
+                      onPress={() => {
+                        setAdSettingsData((prev: any) => ({
+                          ...prev,
+                          [item.key]: !prev[item.key],
+                        }));
+                      }}
+                    >
+                      <Text
+                        style={[
+                          styles.adScreenPillText,
+                          isChecked && styles.adScreenPillTextActive,
+                        ]}
+                      >
+                        {isChecked ? '✓ ' : '✕ '}
+                        {item.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+
+            {/* Sub-Tabs Switcher */}
+            <View style={styles.adSubNav}>
+              <TouchableOpacity
+                style={[styles.adSubNavBtn, adsSubMode === 'admob' && styles.adSubNavBtnActive]}
+                onPress={() => setAdsSubMode('admob')}
+              >
+                <Text style={[styles.adSubNavText, adsSubMode === 'admob' && styles.adSubNavTextActive]}>
+                  🎯 AdMob Units
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.adSubNavBtn, adsSubMode === 'banners' && styles.adSubNavBtnActive]}
+                onPress={() => setAdsSubMode('banners')}
+              >
+                <Text style={[styles.adSubNavText, adsSubMode === 'banners' && styles.adSubNavTextActive]}>
+                  🏷️ House Promos ({customBannersList.length})
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.adSubNavBtn, adsSubMode === 'preview' && styles.adSubNavBtnActive]}
+                onPress={() => setAdsSubMode('preview')}
+              >
+                <Text style={[styles.adSubNavText, adsSubMode === 'preview' && styles.adSubNavTextActive]}>
+                  👁️ Live Preview
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* SUB-VIEW 1: Google AdMob Configuration */}
+            {adsSubMode === 'admob' && (
+              <View>
+                <View style={styles.adPolicyBanner}>
+                  <Text style={styles.adPolicyTitle}>🛡️ Google AdMob Policy Guidance</Text>
+                  <Text style={styles.adPolicyText}>
+                    Google strictly forbids clicking live ads during development. Always use official test unit IDs
+                    below during development or Play Store verification. Replace with production IDs only when published.
+                  </Text>
+                </View>
+
+                <View style={styles.card}>
+                  <Text style={styles.adFieldLabel}>Android App ID</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={adSettingsData.admobAppId || ''}
+                    onChangeText={(val) =>
+                      setAdSettingsData((prev: any) => ({ ...prev, admobAppId: val }))
+                    }
+                    placeholder="ca-app-pub-3940256099942544~3347511713"
+                    autoCapitalize="none"
+                  />
+
+                  <Text style={[styles.adFieldLabel, { marginTop: 10 }]}>Banner Ad Unit ID</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={adSettingsData.admobBannerId || ''}
+                    onChangeText={(val) =>
+                      setAdSettingsData((prev: any) => ({ ...prev, admobBannerId: val }))
+                    }
+                    placeholder="ca-app-pub-3940256099942544/6300978111"
+                    autoCapitalize="none"
+                  />
+
+                  <Text style={[styles.adFieldLabel, { marginTop: 10 }]}>Interstitial Ad Unit ID</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={adSettingsData.admobInterstitialId || ''}
+                    onChangeText={(val) =>
+                      setAdSettingsData((prev: any) => ({ ...prev, admobInterstitialId: val }))
+                    }
+                    placeholder="ca-app-pub-3940256099942544/1033173712"
+                    autoCapitalize="none"
+                  />
+
+                  <Text style={[styles.adFieldLabel, { marginTop: 10 }]}>Rewarded Ad Unit ID</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={adSettingsData.admobRewardedId || ''}
+                    onChangeText={(val) =>
+                      setAdSettingsData((prev: any) => ({ ...prev, admobRewardedId: val }))
+                    }
+                    placeholder="ca-app-pub-3940256099942544/5224354917"
+                    autoCapitalize="none"
+                  />
+
+                  <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
+                    <TouchableOpacity
+                      style={[styles.smallBtn, { backgroundColor: '#F1F5F9', flex: 1, borderWidth: 1, borderColor: '#CBD5E1' }]}
+                      onPress={handleLoadOfficialTestIds}
+                    >
+                      <Text style={{ color: '#334155', fontWeight: '700', fontSize: 13, textAlign: 'center' }}>
+                        🧪 Load Official Test IDs
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[styles.smallBtn, { backgroundColor: colors.primary, flex: 1 }]}
+                      onPress={handleSaveAdSettings}
+                      disabled={savingAdSettings}
+                    >
+                      {savingAdSettings ? (
+                        <ActivityIndicator size="small" color="#fff" />
+                      ) : (
+                        <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13, textAlign: 'center' }}>
+                          💾 Save & Apply
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            )}
+
+            {/* SUB-VIEW 2: Custom House Promotions */}
+            {adsSubMode === 'banners' && (
+              <View>
+                {/* Form to create banner */}
+                <View style={styles.card}>
+                  <Text style={[typography.h3, { marginBottom: 4 }]}>Create In-House Promotion</Text>
+                  <Text style={[styles.adFieldHelp, { marginBottom: 12 }]}>
+                    Display your own Jhankar Mobile parts, tools, or WhatsApp links directly in the user app.
+                  </Text>
+
+                  <Text style={styles.adFieldLabel}>Campaign Headline *</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={bannerTitleInput}
+                    onChangeText={setBannerTitleInput}
+                    placeholder="e.g. Wholesale OCA Glass & Touch Screens"
+                  />
+
+                  <Text style={[styles.adFieldLabel, { marginTop: 10 }]}>Description / Deal *</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={bannerDescInput}
+                    onChangeText={setBannerDescInput}
+                    placeholder="e.g. Original factory grade with warranty. Fast delivery."
+                  />
+
+                  <Text style={[styles.adFieldLabel, { marginTop: 10 }]}>Destination / WhatsApp URL *</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={bannerTargetInput}
+                    onChangeText={setBannerTargetInput}
+                    placeholder="https://wa.me/919461000000 or website link"
+                    autoCapitalize="none"
+                  />
+
+                  <Text style={[styles.adFieldLabel, { marginTop: 10 }]}>Image URL (Optional)</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={bannerImageInput}
+                    onChangeText={setBannerImageInput}
+                    placeholder="https://example.com/banner-icon.png"
+                    autoCapitalize="none"
+                  />
+
+                  <Text style={[styles.adFieldLabel, { marginTop: 10 }]}>Target Placement</Text>
+                  <View style={styles.adPlacementRow}>
+                    {[
+                      { key: 'all', label: 'All Screens' },
+                      { key: 'home', label: 'Home' },
+                      { key: 'results', label: 'Results' },
+                      { key: 'catalog', label: 'Catalog' },
+                    ].map((p) => (
+                      <TouchableOpacity
+                        key={p.key}
+                        style={[
+                          styles.adScreenPill,
+                          bannerPlacementSelect === p.key && styles.adScreenPillActive,
+                        ]}
+                        onPress={() => setBannerPlacementSelect(p.key as any)}
+                      >
+                        <Text
+                          style={[
+                            styles.adScreenPillText,
+                            bannerPlacementSelect === p.key && styles.adScreenPillTextActive,
+                          ]}
+                        >
+                          {p.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  <TouchableOpacity
+                    style={[styles.smallBtn, { backgroundColor: colors.primary, marginTop: 16 }]}
+                    onPress={handleCreateCustomBanner}
+                    disabled={creatingBanner}
+                  >
+                    {creatingBanner ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13, textAlign: 'center' }}>
+                        ➕ Publish In-House Promotion
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+
+                {/* List of active banners */}
+                <Text style={[typography.h3, { marginTop: 8, marginBottom: 8 }]}>
+                  Active Promotions ({customBannersList.length})
+                </Text>
+
+                {customBannersList.length === 0 ? (
+                  <View style={[styles.card, { alignItems: 'center', paddingVertical: 24 }]}>
+                    <Text style={{ fontSize: 32, marginBottom: 8 }}>🏷️</Text>
+                    <Text style={{ fontWeight: '700', color: colors.textPrimary }}>No In-House Banners Yet</Text>
+                    <Text style={{ fontSize: 12, color: colors.textSecondary, marginTop: 4 }}>
+                      Create a promotion above to advertise Jhankar Mobile parts or WhatsApp inquiries.
+                    </Text>
+                  </View>
+                ) : (
+                  customBannersList.map((banner) => (
+                    <View key={banner.id} style={styles.adBannerItem}>
+                      <View style={{ flex: 1, marginRight: 10 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <View
+                            style={[
+                              styles.adStatusDot,
+                              { backgroundColor: banner.isActive ? '#10B981' : '#94A3B8' },
+                            ]}
+                          />
+                          <Text style={{ fontWeight: '800', color: colors.textPrimary, fontSize: 14 }}>
+                            {banner.title}
+                          </Text>
+                          <View style={styles.adPlacementBadge}>
+                            <Text style={styles.adPlacementBadgeText}>
+                              {banner.placement.toUpperCase()}
+                            </Text>
+                          </View>
+                        </View>
+
+                        <Text style={{ fontSize: 12, color: colors.textSecondary, marginTop: 4 }}>
+                          {banner.description}
+                        </Text>
+                        <Text style={{ fontSize: 11, color: colors.primary, marginTop: 2 }} numberOfLines={1}>
+                          🔗 {banner.targetUrl}
+                        </Text>
+
+                        {/* Analytics summary */}
+                        <View style={styles.adBannerAnalytics}>
+                          <Text style={styles.adBannerAnalyticsText}>
+                            👁️ {banner.impressionCount || 0} views • 👆 {banner.clickCount || 0} clicks
+                          </Text>
+                        </View>
+                      </View>
+
+                      <View style={{ alignItems: 'flex-end', gap: 8 }}>
+                        <TouchableOpacity
+                          style={[
+                            styles.adStatusToggleBtn,
+                            { backgroundColor: banner.isActive ? '#ECFDF5' : '#F1F5F9' },
+                          ]}
+                          onPress={() => handleToggleBannerActive(banner)}
+                        >
+                          <Text
+                            style={{
+                              fontSize: 11,
+                              fontWeight: '700',
+                              color: banner.isActive ? '#059669' : '#64748B',
+                            }}
+                          >
+                            {banner.isActive ? 'Active' : 'Paused'}
+                          </Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={[styles.smallBtn, { backgroundColor: colors.errorBg, paddingHorizontal: 10 }]}
+                          onPress={() => handleDeleteBanner(banner)}
+                        >
+                          <Text style={{ color: colors.error, fontSize: 11, fontWeight: '700' }}>
+                            Delete
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  ))
+                )}
+              </View>
+            )}
+
+            {/* SUB-VIEW 3: Live Mobile Ad Preview */}
+            {adsSubMode === 'preview' && (
+              <View>
+                <View style={styles.card}>
+                  <Text style={[typography.h3, { marginBottom: 6 }]}>Live Preview Simulator</Text>
+                  <Text style={[styles.adFieldHelp, { marginBottom: 12 }]}>
+                    Select a screen to preview how technicians will see the advertisement.
+                  </Text>
+
+                  <View style={styles.adPlacementRow}>
+                    {[
+                      { key: 'home', label: '🏠 Home Screen' },
+                      { key: 'results', label: '🔍 Search Results' },
+                      { key: 'catalog', label: '📂 Spare Catalog' },
+                    ].map((p) => (
+                      <TouchableOpacity
+                        key={p.key}
+                        style={[
+                          styles.adScreenPill,
+                          previewPlacement === p.key && styles.adScreenPillActive,
+                        ]}
+                        onPress={() => setPreviewPlacement(p.key as any)}
+                      >
+                        <Text
+                          style={[
+                            styles.adScreenPillText,
+                            previewPlacement === p.key && styles.adScreenPillTextActive,
+                          ]}
+                        >
+                          {p.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                {/* Device Screen Frame */}
+                <View style={styles.adPhoneFrame}>
+                  <View style={styles.adPhoneHeader}>
+                    <Text style={styles.adPhoneHeaderText}>
+                      MobiMatch Mobile • {previewPlacement.toUpperCase()} SCREEN
+                    </Text>
+                  </View>
+
+                  <View style={styles.adPhoneBody}>
+                    <Text style={{ fontSize: 11, color: '#94A3B8', marginBottom: 10, textAlign: 'center' }}>
+                      ── Screen Mockup Content ──
+                    </Text>
+
+                    {/* Check if ads are enabled and placement is enabled */}
+                    {!adSettingsData.adsEnabled ? (
+                      <View style={styles.adPreviewDisabledBox}>
+                        <Text style={{ fontSize: 24, marginBottom: 4 }}>🛑</Text>
+                        <Text style={{ fontWeight: '700', color: '#64748B', fontSize: 13 }}>
+                          Ads Globally Disabled
+                        </Text>
+                        <Text style={{ fontSize: 11, color: '#94A3B8', textAlign: 'center', marginTop: 2 }}>
+                          No advertisement will be displayed on technician devices.
+                        </Text>
+                      </View>
+                    ) : (previewPlacement === 'home' && !adSettingsData.showOnHome) ||
+                      (previewPlacement === 'results' && !adSettingsData.showOnResults) ||
+                      (previewPlacement === 'catalog' && !adSettingsData.showOnCatalog) ? (
+                      <View style={styles.adPreviewDisabledBox}>
+                        <Text style={{ fontSize: 24, marginBottom: 4 }}>👁️‍🗨️</Text>
+                        <Text style={{ fontWeight: '700', color: '#64748B', fontSize: 13 }}>
+                          Turned OFF for this Screen
+                        </Text>
+                        <Text style={{ fontSize: 11, color: '#94A3B8', textAlign: 'center', marginTop: 2 }}>
+                          Placement '{previewPlacement}' is unchecked in settings.
+                        </Text>
+                      </View>
+                    ) : (() => {
+                      // Check for matching house banner
+                      const matchingBanner = customBannersList.find(
+                        (b) => b.isActive && (b.placement === 'all' || b.placement === previewPlacement)
+                      );
+
+                      if (matchingBanner && (adSettingsData.adProvider === 'custom' || adSettingsData.adProvider === 'hybrid')) {
+                        return (
+                          <TouchableOpacity
+                            style={[styles.adContainer, { borderColor: '#A7F3D0' }]}
+                            activeOpacity={0.8}
+                            onPress={() => {
+                              Alert.alert('Simulated Click', `Target URL: ${matchingBanner.targetUrl}`);
+                            }}
+                          >
+                            <View style={styles.adHeader}>
+                              <View style={[styles.adBadge, { backgroundColor: '#10B981' }]}>
+                                <Text style={styles.adBadgeText}>PROMO</Text>
+                              </View>
+                              <Text style={styles.adMetaText}>Jhankar Mobile Official Partner</Text>
+                            </View>
+                            <View style={styles.adContentBox}>
+                              <View style={[styles.adIconBox, { backgroundColor: '#ECFDF5', borderColor: '#A7F3D0' }]}>
+                                <Text style={{ fontSize: 20 }}>⭐</Text>
+                              </View>
+                              <View style={{ flex: 1, marginLeft: 10 }}>
+                                <Text style={styles.adHeadline} numberOfLines={1}>
+                                  {matchingBanner.title}
+                                </Text>
+                                <Text style={styles.adDescription} numberOfLines={1}>
+                                  {matchingBanner.description}
+                                </Text>
+                              </View>
+                              <View style={[styles.adActionPill, { backgroundColor: '#059669' }]}>
+                                <Text style={styles.adActionText}>Explore</Text>
+                              </View>
+                            </View>
+                          </TouchableOpacity>
+                        );
+                      }
+
+                      // AdMob Banner Mockup
+                      return (
+                        <TouchableOpacity
+                          style={styles.adContainer}
+                          activeOpacity={0.8}
+                          onPress={() => {
+                            Alert.alert('Simulated AdMob Click', `Ad Unit: ${adSettingsData.admobBannerId}`);
+                          }}
+                        >
+                          <View style={styles.adHeader}>
+                            <View style={styles.adBadge}>
+                              <Text style={styles.adBadgeText}>Ad</Text>
+                            </View>
+                            <Text style={styles.adMetaText}>
+                              Google AdMob • Test Unit (320x50)
+                            </Text>
+                          </View>
+                          <View style={styles.adContentBox}>
+                            <View style={styles.adIconBox}>
+                              <Text style={{ fontSize: 20 }}>📢</Text>
+                            </View>
+                            <View style={{ flex: 1, marginLeft: 10 }}>
+                              <Text style={styles.adHeadline} numberOfLines={1}>
+                                Jhankar Mobile Spare Parts & Tools
+                              </Text>
+                              <Text style={styles.adDescription} numberOfLines={1}>
+                                Best wholesale rates on OCA glass, combos & technician toolkits
+                              </Text>
+                            </View>
+                            <View style={styles.adActionPill}>
+                              <Text style={styles.adActionText}>Install / Open</Text>
+                            </View>
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })()}
+                  </View>
+                </View>
+              </View>
+            )}
+          </View>
+        )}
+
         <View style={{ height: 40 }} />
       </ScrollView>
     </SafeAreaView>
@@ -2894,6 +3588,318 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     borderWidth: 1,
     borderColor: colors.border,
+  },
+  // Advertisement & Monetization Styles
+  adMasterCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.surface,
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 1.5,
+    borderColor: colors.borderDark,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  adMasterTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: colors.textPrimary,
+  },
+  adMasterSubtitle: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 3,
+    lineHeight: 16,
+  },
+  adMasterToggle: {
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  adMasterToggleText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 14,
+    letterSpacing: 1,
+  },
+  adFieldLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    marginBottom: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  adFieldHelp: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    lineHeight: 16,
+  },
+  adPlacementRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  adModePill: {
+    flex: 1,
+    minWidth: 100,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    backgroundColor: colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  adModePillActive: {
+    borderColor: colors.primary,
+    backgroundColor: '#EFF6FF',
+  },
+  adModePillText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  adModePillTextActive: {
+    color: colors.primary,
+    fontWeight: '800',
+  },
+  adScreenPill: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    backgroundColor: colors.background,
+  },
+  adScreenPillActive: {
+    borderColor: '#10B981',
+    backgroundColor: '#ECFDF5',
+  },
+  adScreenPillText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  adScreenPillTextActive: {
+    color: '#065F46',
+    fontWeight: '800',
+  },
+  adSubNav: {
+    flexDirection: 'row',
+    backgroundColor: '#E2E8F0',
+    borderRadius: 10,
+    padding: 3,
+    marginBottom: 14,
+    gap: 4,
+  },
+  adSubNavBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  adSubNavBtnActive: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  adSubNavText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  adSubNavTextActive: {
+    color: colors.primary,
+    fontWeight: '800',
+  },
+  adPolicyBanner: {
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1.5,
+    borderColor: '#F59E0B',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 12,
+  },
+  adPolicyTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#92400E',
+    marginBottom: 3,
+  },
+  adPolicyText: {
+    fontSize: 12,
+    color: '#78350F',
+    lineHeight: 16,
+  },
+  adBannerItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    backgroundColor: colors.surface,
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  adStatusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  adPlacementBadge: {
+    backgroundColor: '#F1F5F9',
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    borderRadius: 4,
+  },
+  adPlacementBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  adBannerAnalytics: {
+    marginTop: 6,
+    backgroundColor: '#F8FAFC',
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+  },
+  adBannerAnalyticsText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  adStatusToggleBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  adPhoneFrame: {
+    backgroundColor: '#0F172A',
+    borderRadius: 16,
+    padding: 6,
+    borderWidth: 3,
+    borderColor: '#334155',
+    marginVertical: 6,
+  },
+  adPhoneHeader: {
+    paddingVertical: 6,
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#1E293B',
+  },
+  adPhoneHeaderText: {
+    color: '#94A3B8',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1,
+  },
+  adPhoneBody: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 14,
+    minHeight: 180,
+    justifyContent: 'center',
+  },
+  adPreviewDisabledBox: {
+    alignItems: 'center',
+    paddingVertical: 24,
+    paddingHorizontal: 16,
+  },
+  adContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  adHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  adBadge: {
+    backgroundColor: '#F59E0B',
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 3,
+    marginRight: 6,
+  },
+  adBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  adMetaText: {
+    fontSize: 10,
+    color: '#94A3B8',
+    fontWeight: '500',
+  },
+  adContentBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    minHeight: 56,
+  },
+  adIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 6,
+    backgroundColor: '#EFF6FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#DBEAFE',
+  },
+  adHeadline: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1E293B',
+  },
+  adDescription: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  adActionPill: {
+    backgroundColor: '#1E40AF',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    marginLeft: 6,
+  },
+  adActionText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '700',
   },
 });
 

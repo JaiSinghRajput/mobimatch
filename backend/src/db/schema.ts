@@ -6,6 +6,7 @@ import {
   timestamp,
   uniqueIndex,
   index,
+  integer,
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
@@ -218,6 +219,37 @@ export const modelRequests = pgTable(
     statusIdx: index('model_requests_status_idx').on(table.status),
   })
 );
+
+// 11. Ad Settings Table
+export const adSettings = pgTable('ad_settings', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  adsEnabled: boolean('ads_enabled').default(true).notNull(),
+  adProvider: text('ad_provider').default('admob').notNull(),
+  admobAppId: text('admob_app_id').default('ca-app-pub-3940256099942544~3347511713').notNull(),
+  admobBannerId: text('admob_banner_id').default('ca-app-pub-3940256099942544/6300978111').notNull(),
+  admobInterstitialId: text('admob_interstitial_id').default('ca-app-pub-3940256099942544/1033173712').notNull(),
+  admobRewardedId: text('admob_rewarded_id').default('ca-app-pub-3940256099942544/5224354917').notNull(),
+  showOnHome: boolean('show_on_home').default(true).notNull(),
+  showOnResults: boolean('show_on_results').default(true).notNull(),
+  showOnCatalog: boolean('show_on_catalog').default(true).notNull(),
+  bannerRefreshIntervalSec: integer('banner_refresh_interval_sec').default(30).notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+// 12. Custom Banners Table
+export const customBanners = pgTable('custom_banners', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  title: text('title').notNull(),
+  description: text('description').notNull(),
+  imageUrl: text('image_url'),
+  targetUrl: text('target_url').notNull(),
+  placement: text('placement').default('all').notNull(),
+  isActive: boolean('is_active').default(true).notNull(),
+  clickCount: integer('click_count').default(0).notNull(),
+  impressionCount: integer('impression_count').default(0).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
 
 // -------------------------------------------------------------
 // Drizzle Relations Definitions

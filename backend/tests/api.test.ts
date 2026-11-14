@@ -664,4 +664,101 @@ describe('MobiMatch Backend API Integration Test Suite', () => {
       expect(refreshRes.status).toBe(401);
     });
   });
+
+  // ==========================================
+  // 9. Advertisement & Monetization Suite
+  // ==========================================
+  describe('Advertisement & Monetization Management', () => {
+    let createdBannerId: string;
+
+    it('GET /v1/ads/config returns default or active ad settings', async () => {
+      const res = await request.get('/v1/ads/config');
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveProperty('adsEnabled');
+      expect(res.body).toHaveProperty('admobBannerId');
+      expect(Array.isArray(res.body.customBanners)).toBe(true);
+    });
+
+    it('Admin can get current ad settings', async () => {
+      const res = await request
+        .get('/v1/admin/ads/settings')
+        .set('Authorization', `Bearer ${adminToken}`);
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveProperty('adsEnabled');
+    });
+
+    it('Admin can update ad settings and master switch', async () => {
+      const res = await request
+        .put('/v1/admin/ads/settings')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          adsEnabled: false,
+          adProvider: 'hybrid',
+          showOnHome: true,
+          showOnResults: false,
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.adsEnabled).toBe(false);
+      expect(res.body.adProvider).toBe('hybrid');
+      expect(res.body.showOnResults).toBe(false);
+
+      // Re-enable for subsequent tests
+      await request
+        .put('/v1/admin/ads/settings')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ adsEnabled: true });
+    });
+
+    it('Admin can create a custom house promotion banner', async () => {
+      const res = await request
+        .post('/v1/admin/ads/banners')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          title: 'Jhankar Mobile Wholesale Glass',
+          description: 'Top OCA glass and combo discounts',
+          targetUrl: 'https://wa.me/919461000000',
+          placement: 'all',
+          isActive: true,
+        });
+
+      expect(res.status).toBe(201);
+      expect(res.body).toHaveProperty('id');
+      expect(res.body.title).toBe('Jhankar Mobile Wholesale Glass');
+      createdBannerId = res.body.id;
+    });
+
+    it('Public user can record click on house banner', async () => {
+      const res = await request
+        .post(`/v1/ads/banners/${createdBannerId}/click`)
+        .send();
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+    });
+
+    it('Admin can list, update, and delete custom banners', async () => {
+      // List
+      const listRes = await request
+        .get('/v1/admin/ads/banners')
+        .set('Authorization', `Bearer ${adminToken}`);
+      expect(listRes.status).toBe(200);
+      expect(listRes.body.length).toBeGreaterThan(0);
+
+      // Update
+      const patchRes = await request
+        .patch(`/v1/admin/ads/banners/${createdBannerId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ isActive: false });
+      expect(patchRes.status).toBe(200);
+      expect(patchRes.body.isActive).toBe(false);
+
+      // Delete
+      const deleteRes = await request
+        .delete(`/v1/admin/ads/banners/${createdBannerId}`)
+        .set('Authorization', `Bearer ${adminToken}`);
+      expect(deleteRes.status).toBe(200);
+      expect(deleteRes.body.success).toBe(true);
+    });
+  });
 });

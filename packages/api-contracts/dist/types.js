@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.AppConfigResponseSchema = exports.AddAdminAllowlistRequestSchema = exports.AdminAllowlistEntrySchema = exports.ModelRequestItemSchema = exports.CreateModelRequestSchema = exports.ModelRequestStatusSchema = exports.IssueReportSchema = exports.CreateIssueReportRequestSchema = exports.IssueReportStatusSchema = exports.IssueReportTypeSchema = exports.PublishCompatibilityRequestSchema = exports.ConflictActionSchema = exports.ParsePreviewResponseSchema = exports.ConflictItemSchema = exports.ResolvedModelMatchSchema = exports.ParsedLineSchema = exports.ParsedModelTokenSchema = exports.CompatibilityResultSchema = exports.CompatibilityGroupMemberItemSchema = exports.ModelSearchItemSchema = exports.SparePartCategorySchema = exports.MobileModelSchema = exports.BrandSchema = exports.UserProfileSchema = exports.UpdateProfileRequestSchema = exports.CompleteProfileRequestSchema = exports.TokenResponseSchema = exports.RefreshTokenRequestSchema = exports.GoogleAuthRequestSchema = exports.ClientAppTypeSchema = exports.UserStatusSchema = void 0;
+exports.CreateCustomBannerRequestSchema = exports.CustomBannerSchema = exports.UpdateAdSettingsRequestSchema = exports.AdSettingsSchema = exports.AppConfigResponseSchema = exports.AddAdminAllowlistRequestSchema = exports.AdminAllowlistEntrySchema = exports.ModelRequestItemSchema = exports.CreateModelRequestSchema = exports.ModelRequestStatusSchema = exports.IssueReportSchema = exports.CreateIssueReportRequestSchema = exports.IssueReportStatusSchema = exports.IssueReportTypeSchema = exports.PublishCompatibilityRequestSchema = exports.ConflictActionSchema = exports.ParsePreviewResponseSchema = exports.ConflictItemSchema = exports.ResolvedModelMatchSchema = exports.ParsedLineSchema = exports.ParsedModelTokenSchema = exports.CompatibilityResultSchema = exports.CompatibilityGroupMemberItemSchema = exports.ModelSearchItemSchema = exports.SparePartCategorySchema = exports.MobileModelSchema = exports.BrandSchema = exports.UserProfileSchema = exports.UpdateProfileRequestSchema = exports.CompleteProfileRequestSchema = exports.TokenResponseSchema = exports.RefreshTokenRequestSchema = exports.GoogleAuthRequestSchema = exports.ClientAppTypeSchema = exports.UserStatusSchema = void 0;
 const zod_1 = require("zod");
 // ==========================================
 // User & Auth Schemas & Types
@@ -261,5 +261,55 @@ exports.AppConfigResponseSchema = zod_1.z.object({
     termsUrl: zod_1.z.string(),
     privacyPolicyUrl: zod_1.z.string(),
     accountDeletionUrl: zod_1.z.string(),
+});
+// ==========================================
+// Advertisement Management
+// ==========================================
+exports.AdSettingsSchema = zod_1.z.object({
+    id: zod_1.z.string().uuid().optional(),
+    adsEnabled: zod_1.z.boolean(),
+    adProvider: zod_1.z.string(),
+    admobAppId: zod_1.z.string(),
+    admobBannerId: zod_1.z.string(),
+    admobInterstitialId: zod_1.z.string(),
+    admobRewardedId: zod_1.z.string(),
+    showOnHome: zod_1.z.boolean(),
+    showOnResults: zod_1.z.boolean(),
+    showOnCatalog: zod_1.z.boolean(),
+    bannerRefreshIntervalSec: zod_1.z.number().int(),
+    updatedAt: zod_1.z.string().optional(),
+});
+exports.UpdateAdSettingsRequestSchema = zod_1.z.object({
+    adsEnabled: zod_1.z.boolean().optional(),
+    adProvider: zod_1.z.string().optional(),
+    admobAppId: zod_1.z.string().optional(),
+    admobBannerId: zod_1.z.string().optional(),
+    admobInterstitialId: zod_1.z.string().optional(),
+    admobRewardedId: zod_1.z.string().optional(),
+    showOnHome: zod_1.z.boolean().optional(),
+    showOnResults: zod_1.z.boolean().optional(),
+    showOnCatalog: zod_1.z.boolean().optional(),
+    bannerRefreshIntervalSec: zod_1.z.number().int().optional(),
+});
+exports.CustomBannerSchema = zod_1.z.object({
+    id: zod_1.z.string().uuid(),
+    title: zod_1.z.string(),
+    description: zod_1.z.string(),
+    imageUrl: zod_1.z.string().nullable().optional(),
+    targetUrl: zod_1.z.string(),
+    placement: zod_1.z.string(),
+    isActive: zod_1.z.boolean(),
+    clickCount: zod_1.z.number().int(),
+    impressionCount: zod_1.z.number().int(),
+    createdAt: zod_1.z.string(),
+    updatedAt: zod_1.z.string().optional(),
+});
+exports.CreateCustomBannerRequestSchema = zod_1.z.object({
+    title: zod_1.z.string().min(1),
+    description: zod_1.z.string().min(1),
+    imageUrl: zod_1.z.string().nullable().optional(),
+    targetUrl: zod_1.z.string().min(1),
+    placement: zod_1.z.string().default('all'),
+    isActive: zod_1.z.boolean().default(true),
 });
 //# sourceMappingURL=types.js.map

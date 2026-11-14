@@ -180,6 +180,17 @@ class UserApiClient {
       body: JSON.stringify(data),
     });
   }
+
+  // Advertisement & Monetization
+  async getAdConfig(): Promise<any> {
+    return this.request('/v1/ads/config');
+  }
+
+  async recordBannerClick(bannerId: string): Promise<any> {
+    return this.request(`/v1/ads/banners/${bannerId}/click`, {
+      method: 'POST',
+    });
+  }
 }
 
 export const userApi = new UserApiClient();
