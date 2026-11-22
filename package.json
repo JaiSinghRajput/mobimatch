@@ -36,5 +36,8 @@
   "license": "UNLICENSED",
   "dependencies": {
     "zod": "3.24.2"
+  },
+  "devDependencies": {
+    "eas-cli": "^27.11.0"
   }
 }

@@ -6,9 +6,9 @@
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
-    "build:apk": "eas build -p android --profile preview",
-    "build:aab": "eas build -p android --profile production",
-    "credentials": "eas credentials -p android"
+    "build:apk": "npx --yes eas-cli build -p android --profile preview",
+    "build:aab": "npx --yes eas-cli build -p android --profile production",
+    "credentials": "npx --yes eas-cli credentials -p android"
   },
   "dependencies": {
     "@mobimatch/api-contracts": "*",

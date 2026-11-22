@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Generates a production/release Android Keystore and extracts the SHA-1 & SHA-256 fingerprints.
 .DESCRIPTION
