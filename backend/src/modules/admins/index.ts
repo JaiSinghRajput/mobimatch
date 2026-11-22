@@ -6,9 +6,6 @@ import { getDb } from '../../db';
 import {
   users,
   adminAllowlist,
-  brands,
-  mobileModels,
-  sparePartCategories,
   issueReports,
   modelRequests,
 } from '../../db/schema';

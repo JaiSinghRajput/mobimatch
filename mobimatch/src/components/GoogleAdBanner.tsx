@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Linking, Image } from 'react-native';
 import { ADMOB_CONFIG } from '../config/ads';
 import { userApi } from '../api/client';
+import { colors, fontWeights, borderRadius } from '../theme';
 
 interface GoogleAdBannerProps {
   placement?: 'home' | 'results' | 'catalog' | 'modal';
@@ -68,8 +69,8 @@ export const GoogleAdBanner: React.FC<GoogleAdBannerProps> = ({ placement = 'hom
     return (
       <View style={[styles.adContainer, styles.customBannerBorder, style]}>
         <View style={styles.adHeader}>
-          <View style={[styles.adBadge, { backgroundColor: '#10B981' }]}>
-            <Text style={styles.adBadgeText}>PROMO</Text>
+          <View style={[styles.adBadge, { backgroundColor: colors.promoBadgeBg }]}>
+            <Text style={[styles.adBadgeText, { color: colors.promoBadgeText }]}>PROMO</Text>
           </View>
           <Text style={styles.adMetaText}>Jhankar Mobile Official Partner</Text>
         </View>
@@ -91,7 +92,7 @@ export const GoogleAdBanner: React.FC<GoogleAdBannerProps> = ({ placement = 'hom
               resizeMode="cover"
             />
           ) : (
-            <View style={[styles.adIconBox, { backgroundColor: '#ECFDF5', borderColor: '#A7F3D0' }]}>
+            <View style={[styles.adIconBox, { backgroundColor: colors.promoBg, borderColor: colors.promoBorder }]}>
               <Text style={{ fontSize: 20 }}>⭐</Text>
             </View>
           )}
@@ -105,7 +106,7 @@ export const GoogleAdBanner: React.FC<GoogleAdBannerProps> = ({ placement = 'hom
             </Text>
           </View>
 
-          <View style={[styles.adActionPill, { backgroundColor: '#059669' }]}>
+          <View style={[styles.adActionPill, { backgroundColor: colors.promoActionBg }]}>
             <Text style={styles.adActionText}>Explore</Text>
           </View>
         </TouchableOpacity>
@@ -120,8 +121,8 @@ export const GoogleAdBanner: React.FC<GoogleAdBannerProps> = ({ placement = 'hom
     <View style={[styles.adContainer, style]}>
       {/* Top Banner Tag */}
       <View style={styles.adHeader}>
-        <View style={styles.adBadge}>
-          <Text style={styles.adBadgeText}>Ad</Text>
+        <View style={[styles.adBadge, { backgroundColor: colors.adBadgeBg }]}>
+          <Text style={[styles.adBadgeText, { color: colors.adBadgeText }]}>Ad</Text>
         </View>
         <Text style={styles.adMetaText}>
           Google AdMob • {bannerId?.includes('3940256099942544') ? 'Test Unit (320x50)' : 'Sponsored'}
@@ -158,10 +159,10 @@ export const GoogleAdBanner: React.FC<GoogleAdBannerProps> = ({ placement = 'hom
 const styles = StyleSheet.create({
   adContainer: {
     marginVertical: 10,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
@@ -170,34 +171,32 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   customBannerBorder: {
-    borderColor: '#A7F3D0',
+    borderColor: colors.promoBorder,
   },
   adHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.surfaceSubtle,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: colors.borderLight,
   },
   adBadge: {
-    backgroundColor: '#F59E0B',
     paddingHorizontal: 5,
     paddingVertical: 1,
-    borderRadius: 3,
+    borderRadius: borderRadius.xs,
     marginRight: 6,
   },
   adBadgeText: {
-    color: '#FFFFFF',
     fontSize: 9,
-    fontWeight: '800',
+    fontWeight: fontWeights.heavy,
     letterSpacing: 0.5,
   },
   adMetaText: {
     fontSize: 10,
-    color: '#94A3B8',
-    fontWeight: '500',
+    color: colors.textMuted,
+    fontWeight: fontWeights.medium,
   },
   adContentBox: {
     flexDirection: 'row',
@@ -209,38 +208,38 @@ const styles = StyleSheet.create({
   customBannerImage: {
     width: 38,
     height: 38,
-    borderRadius: 6,
+    borderRadius: borderRadius.md,
   },
   adIconBox: {
     width: 38,
     height: 38,
-    borderRadius: 6,
-    backgroundColor: '#EFF6FF',
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.primaryLighter,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#DBEAFE',
+    borderColor: colors.primaryBorder,
   },
   adHeadline: {
     fontSize: 12,
-    fontWeight: '700',
-    color: '#1E293B',
+    fontWeight: fontWeights.bold,
+    color: colors.textPrimary,
   },
   adDescription: {
     fontSize: 11,
-    color: '#64748B',
+    color: colors.textSecondary,
     marginTop: 2,
   },
   adActionPill: {
-    backgroundColor: '#1E40AF',
+    backgroundColor: colors.primary,
     paddingVertical: 6,
     paddingHorizontal: 10,
-    borderRadius: 6,
+    borderRadius: borderRadius.md,
     marginLeft: 6,
   },
   adActionText: {
-    color: '#FFFFFF',
+    color: colors.textInverse,
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: fontWeights.bold,
   },
 });

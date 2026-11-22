@@ -1812,20 +1812,20 @@ const styles = StyleSheet.create({
   backBtn: {
     paddingVertical: 8,
     paddingHorizontal: 14,
-    backgroundColor: '#EEF2FF',
+    backgroundColor: colors.primaryLighter,
     borderRadius: 8,
     alignSelf: 'flex-start',
     marginBottom: 14,
     borderWidth: 1,
-    borderColor: '#C7D2FE',
+    borderColor: colors.primaryBorder,
   },
   headerHomeBtn: {
     paddingVertical: 6,
     paddingHorizontal: 12,
-    backgroundColor: '#EEF2FF',
+    backgroundColor: colors.primaryLighter,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#C7D2FE',
+    borderColor: colors.primaryBorder,
   },
   headerHomeBtnText: {
     fontSize: 13,
@@ -1873,7 +1873,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   bottomNavItemActive: {
-    backgroundColor: '#EEF2FF',
+    backgroundColor: colors.primaryLighter,
   },
   bottomNavIcon: {
     fontSize: 20,
@@ -1963,11 +1963,11 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#EEF2FF',
+    backgroundColor: colors.primaryLighter,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#C7D2FE',
+    borderColor: colors.primaryBorder,
   },
   itemAvatarText: {
     fontWeight: '700',
@@ -2002,13 +2002,13 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   totalCountBadge: {
-    backgroundColor: '#EEF2FF',
+    backgroundColor: colors.primaryLighter,
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 10,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#C7D2FE',
+    borderColor: colors.primaryBorder,
   },
   totalCountNumber: {
     fontSize: 18,
@@ -2029,7 +2029,7 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   matchBadge: {
-    backgroundColor: '#DCFCE7',
+    backgroundColor: colors.successBg,
     paddingVertical: 4,
     paddingHorizontal: 8,
     borderRadius: 6,
@@ -2037,7 +2037,7 @@ const styles = StyleSheet.create({
   matchBadgeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#15803D',
+    color: colors.successText,
   },
   chipActive: {
     borderColor: colors.primary,
@@ -2069,7 +2069,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   profileAvatarLargeText: {
-    color: '#fff',
+    color: colors.textInverse,
     fontSize: 26,
     fontWeight: '800',
   },
@@ -2085,14 +2085,14 @@ const styles = StyleSheet.create({
   },
   verifiedBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: '#DCFCE7',
+    backgroundColor: colors.successBg,
     paddingVertical: 3,
     paddingHorizontal: 8,
     borderRadius: 12,
     marginTop: 6,
   },
   verifiedBadgeText: {
-    color: '#166534',
+    color: colors.successText,
     fontSize: 11,
     fontWeight: '700',
   },
@@ -2119,7 +2119,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     paddingHorizontal: 10,
     borderRadius: 6,
-    backgroundColor: '#EEF2FF',
+    backgroundColor: colors.primaryLighter,
   },
   profileEditToggleText: {
     fontSize: 12,

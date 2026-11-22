@@ -20,8 +20,12 @@
     "db:seed": "npm run --workspace=mobimatch-backend db:seed",
     "test": "npm run --workspace=packages/api-contracts test && npm run --workspace=backend test",
     "check:types": "npm run --workspace=@mobimatch/api-contracts build && npm run --workspace=mobimatch-backend build && npx tsc --noEmit -p mobimatch/tsconfig.json && npx tsc --noEmit -p mobimatch-admin/tsconfig.json",
-    "admin:start": "npm run --workspace=mobimatch-admin start",
-    "user:start": "npm run --workspace=mobimatch start"
+    "admin:start": "npm run --workspace=mobimatch-admin-app start",
+    "user:start": "npm run --workspace=mobimatch-user-app start",
+    "build:apk:user": "npm run --workspace=mobimatch-user-app build:apk",
+    "build:apk:admin": "npm run --workspace=mobimatch-admin-app build:apk",
+    "credentials:user": "npm run --workspace=mobimatch-user-app credentials",
+    "credentials:admin": "npm run --workspace=mobimatch-admin-app credentials"
   },
   "keywords": [
     "mobimatch",
