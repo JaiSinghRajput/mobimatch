@@ -28,8 +28,10 @@
     "extra": {
       "react-native-google-mobile-ads": {
         "android_app_id": "ca-app-pub-3940256099942544~3347511713"
+      },
+      "eas": {
+        "projectId": "1545dd18-a48a-4c39-b963-6cd5867ad5f7"
       }
     }
   }
 }
-

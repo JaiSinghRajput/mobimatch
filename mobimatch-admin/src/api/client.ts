@@ -5,7 +5,7 @@ import {
   AppConfigResponse,
 } from '@mobimatch/api-contracts';
 
-const DEFAULT_API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.10:3000';
+const DEFAULT_API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://mobimatch-backend-gw7a.onrender.com';
 
 class AdminApiClient {
   private baseUrl: string = DEFAULT_API_URL;
