@@ -11,6 +11,7 @@ import {
   StatusBar,
   Platform,
   Image,
+  Linking,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -38,9 +39,24 @@ type AdminTab =
   | 'allowlist'
   | 'ads';
 
+const APP_VERSION = '1.0.0';
+
+function isVersionOlder(current: string, minimum: string): boolean {
+  const c = current.split('.').map((n) => parseInt(n, 10) || 0);
+  const m = minimum.split('.').map((n) => parseInt(n, 10) || 0);
+  for (let i = 0; i < Math.max(c.length, m.length); i++) {
+    const cv = c[i] || 0;
+    const mv = m[i] || 0;
+    if (cv < mv) return true;
+    if (cv > mv) return false;
+  }
+  return false;
+}
+
 function AdminAppContent() {
   const insets = useSafeAreaInsets();
   const [currentUser, setCurrentUser] = useState<any | null>(null);
+  const [restoringSession, setRestoringSession] = useState<boolean>(true);
   const [isAllowlisted, setIsAllowlisted] = useState<boolean>(true);
   const [loading, setLoading] = useState<boolean>(false);
   const [appConfig, setAppConfig] = useState<AppConfigResponse | null>(null);
@@ -148,12 +164,22 @@ function AdminAppContent() {
   const [bannerPlacementSelect, setBannerPlacementSelect] = useState<'all' | 'home' | 'results' | 'catalog'>('all');
   const [creatingBanner, setCreatingBanner] = useState(false);
 
-  // Initial Config Check
+  // Initial Config & Session Restoration
   useEffect(() => {
     adminApi
       .getAppConfig()
       .then(setAppConfig)
       .catch((err) => console.log('Config fetch note:', err.message));
+
+    adminApi
+      .restoreSession()
+      .then((user) => {
+        if (user) {
+          setCurrentUser(user);
+          setIsAllowlisted(true);
+        }
+      })
+      .finally(() => setRestoringSession(false));
   }, []);
 
   // Fetch Tab Data
@@ -738,6 +764,50 @@ function AdminAppContent() {
       setLoading(false);
     }
   };
+
+  // ==========================================
+  // Render: Force Update Required Screen
+  // ==========================================
+  if (appConfig?.minAdminAppVersion && isVersionOlder(APP_VERSION, appConfig.minAdminAppVersion)) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.centerCard}>
+          <Text style={[typography.h1, { color: colors.primary, marginBottom: 12 }]}>
+            Update Required
+          </Text>
+          <Text style={[typography.bodySecondary, { textAlign: 'center', marginBottom: 24 }]}>
+            A newer version ({appConfig.latestAdminAppVersion}) of MobiMatch Admin is required to continue.
+          </Text>
+          <TouchableOpacity
+            style={[styles.button, { backgroundColor: colors.primary }]}
+            onPress={() => {
+              if (appConfig.adminAppUpdateUrl) {
+                Linking.openURL(appConfig.adminAppUpdateUrl).catch(() => {});
+              }
+            }}
+          >
+            <Text style={[typography.button, { color: '#fff' }]}>Update App</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // ==========================================
+  // Render: Restoring Session Splash
+  // ==========================================
+  if (restoringSession) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.centerCard}>
+          <Text style={[typography.h1, { color: colors.primary, marginBottom: 16 }]}>
+            MobiMatch Admin
+          </Text>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   // ==========================================
   // Render: Access Denied Screen

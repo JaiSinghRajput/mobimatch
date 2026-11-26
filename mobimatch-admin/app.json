@@ -27,7 +27,12 @@
     },
     "plugins": [
       "@react-native-google-signin/google-signin"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "ba18e877-5043-48b4-9f25-76d2ea5c9b5b"
+      }
+    },
+    "owner": "mobimatch-apps-team"
   }
 }
-

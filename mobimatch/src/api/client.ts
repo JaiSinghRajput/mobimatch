@@ -1,3 +1,4 @@
+import * as SecureStore from 'expo-secure-store';
 import {
   TokenResponse,
   AppConfigResponse,
@@ -25,6 +26,30 @@ class UserApiClient {
   setTokens(accessToken: string | null, refreshToken: string | null) {
     this.accessToken = accessToken;
     this.refreshToken = refreshToken;
+    if (accessToken && refreshToken) {
+      SecureStore.setItemAsync('mobimatch_user_access_token', accessToken).catch(() => {});
+      SecureStore.setItemAsync('mobimatch_user_refresh_token', refreshToken).catch(() => {});
+    } else {
+      SecureStore.deleteItemAsync('mobimatch_user_access_token').catch(() => {});
+      SecureStore.deleteItemAsync('mobimatch_user_refresh_token').catch(() => {});
+    }
+  }
+
+  async restoreSession(): Promise<any | null> {
+    try {
+      const [access, refresh] = await Promise.all([
+        SecureStore.getItemAsync('mobimatch_user_access_token'),
+        SecureStore.getItemAsync('mobimatch_user_refresh_token'),
+      ]);
+      if (!access && !refresh) return null;
+      this.accessToken = access;
+      this.refreshToken = refresh;
+      const user = await this.request<any>('/v1/users/me');
+      return user;
+    } catch {
+      this.setTokens(null, null);
+      return null;
+    }
   }
 
   getTokens() {

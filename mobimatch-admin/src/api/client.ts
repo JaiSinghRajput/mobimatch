@@ -1,3 +1,4 @@
+import * as SecureStore from 'expo-secure-store';
 import {
   ParsePreviewResponse,
   PublishCompatibilityRequest,
@@ -19,6 +20,34 @@ class AdminApiClient {
   setTokens(accessToken: string | null, refreshToken: string | null) {
     this.accessToken = accessToken;
     this.refreshToken = refreshToken;
+    if (accessToken && refreshToken) {
+      SecureStore.setItemAsync('mobimatch_admin_access_token', accessToken).catch(() => {});
+      SecureStore.setItemAsync('mobimatch_admin_refresh_token', refreshToken).catch(() => {});
+    } else {
+      SecureStore.deleteItemAsync('mobimatch_admin_access_token').catch(() => {});
+      SecureStore.deleteItemAsync('mobimatch_admin_refresh_token').catch(() => {});
+    }
+  }
+
+  async restoreSession(): Promise<any | null> {
+    try {
+      const [access, refresh] = await Promise.all([
+        SecureStore.getItemAsync('mobimatch_admin_access_token'),
+        SecureStore.getItemAsync('mobimatch_admin_refresh_token'),
+      ]);
+      if (!access && !refresh) return null;
+      this.accessToken = access;
+      this.refreshToken = refresh;
+      const user = await this.request<any>('/v1/users/me');
+      if (!user?.isAdmin) {
+        this.setTokens(null, null);
+        return null;
+      }
+      return user;
+    } catch {
+      this.setTokens(null, null);
+      return null;
+    }
   }
 
   getTokens() {

@@ -41,8 +41,23 @@ type Screen =
   | 'request_model'
   | 'profile';
 
+const APP_VERSION = '1.0.0';
+
+function isVersionOlder(current: string, minimum: string): boolean {
+  const c = current.split('.').map((n) => parseInt(n, 10) || 0);
+  const m = minimum.split('.').map((n) => parseInt(n, 10) || 0);
+  for (let i = 0; i < Math.max(c.length, m.length); i++) {
+    const cv = c[i] || 0;
+    const mv = m[i] || 0;
+    if (cv < mv) return true;
+    if (cv > mv) return false;
+  }
+  return false;
+}
+
 function UserAppContent() {
   const [currentUser, setCurrentUser] = useState<any | null>(null);
+  const [restoringSession, setRestoringSession] = useState<boolean>(true);
   const [loading, setLoading] = useState<boolean>(false);
   const [appConfig, setAppConfig] = useState<AppConfigResponse | null>(null);
   const [currentScreen, setCurrentScreen] = useState<Screen>('home');
@@ -94,12 +109,19 @@ function UserAppContent() {
   const [reqModelNumber, setReqModelNumber] = useState('');
   const [reqNotes, setReqNotes] = useState('');
 
-  // Initial Config & Preload Catalog Data
+  // Initial Config & Session Restoration
   useEffect(() => {
     userApi
       .getAppConfig()
       .then(setAppConfig)
       .catch((e) => console.log('Config note:', e.message));
+
+    userApi
+      .restoreSession()
+      .then((user) => {
+        if (user) setCurrentUser(user);
+      })
+      .finally(() => setRestoringSession(false));
   }, []);
 
   // When user is authenticated, preload brands & categories so search & browsing are instant
@@ -399,6 +421,53 @@ function UserAppContent() {
           <Text style={[typography.body, { textAlign: 'center' }]}>
             {appConfig.maintenanceMessage}
           </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // ==========================================
+  // Render: Force Update Required Screen
+  // ==========================================
+  if (appConfig?.minUserAppVersion && isVersionOlder(APP_VERSION, appConfig.minUserAppVersion)) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.centerCard}>
+          <Text style={[typography.h1, { color: colors.primary, marginBottom: 12 }]}>
+            Update Required
+          </Text>
+          <Text style={[typography.bodySecondary, { textAlign: 'center', marginBottom: 24 }]}>
+            A newer version ({appConfig.latestUserAppVersion}) of MobiMatch is required to continue. Please update your app.
+          </Text>
+          <TouchableOpacity
+            style={[styles.button, { backgroundColor: colors.primary }]}
+            onPress={() => {
+              if (appConfig.userAppUpdateUrl) {
+                Linking.openURL(appConfig.userAppUpdateUrl).catch(() => {});
+              }
+            }}
+          >
+            <Text style={[typography.button, { color: '#fff' }]}>Update App</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // ==========================================
+  // Render: Restoring Session Splash
+  // ==========================================
+  if (restoringSession) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.centerCard}>
+          <Text style={[typography.h1, { color: colors.primary, marginBottom: 8 }]}>
+            MobiMatch
+          </Text>
+          <Text style={[styles.brandingSubtitle, { marginBottom: 20 }]}>
+            Mobimatch by jhankar mobile
+          </Text>
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       </SafeAreaView>
     );

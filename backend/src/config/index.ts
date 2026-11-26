@@ -62,7 +62,7 @@ export const config: AppConfig = {
   devMockAuth:
     process.env.DEV_MOCK_AUTH === 'true' ||
     process.env.NODE_ENV === 'test' ||
-    !process.env.GOOGLE_CLIENT_IDS,
+    (process.env.NODE_ENV !== 'production' && !process.env.GOOGLE_CLIENT_IDS),
   maintenanceMode: process.env.APP_MAINTENANCE_MODE === 'true',
   maintenanceMessage:
     process.env.APP_MAINTENANCE_MESSAGE ||
@@ -75,10 +75,11 @@ export const config: AppConfig = {
   minAdminAppVersion: process.env.MIN_ADMIN_APP_VERSION || '1.0.0',
   latestAdminAppVersion: process.env.LATEST_ADMIN_APP_VERSION || '1.0.0',
   adminAppUpdateUrl:
-    process.env.ADMIN_APP_UPDATE_URL || 'https://mobimatch.local/admin-update',
-  termsUrl: process.env.TERMS_URL || 'https://mobimatch.local/terms',
+    process.env.ADMIN_APP_UPDATE_URL || 'https://mobimatch-backend-gw7a.onrender.com/legal/terms',
+  termsUrl: process.env.TERMS_URL || 'https://mobimatch-backend-gw7a.onrender.com/legal/terms',
   privacyPolicyUrl:
-    process.env.PRIVACY_POLICY_URL || 'https://mobimatch.local/privacy',
+    process.env.PRIVACY_POLICY_URL || 'https://mobimatch-backend-gw7a.onrender.com/legal/privacy',
   accountDeletionUrl:
-    process.env.ACCOUNT_DELETION_URL || 'https://mobimatch.local/account-deletion',
+    process.env.ACCOUNT_DELETION_URL ||
+    'https://mobimatch-backend-gw7a.onrender.com/legal/account-deletion',
 };

@@ -38,8 +38,8 @@ services:
       - key: ADMIN_APP_UPDATE_URL
         value: https://mobimatch.local/admin-update
       - key: TERMS_URL
-        value: https://mobimatch.local/terms
+        value: https://mobimatch-backend-gw7a.onrender.com/legal/terms
       - key: PRIVACY_POLICY_URL
-        value: https://mobimatch.local/privacy
+        value: https://mobimatch-backend-gw7a.onrender.com/legal/privacy
       - key: ACCOUNT_DELETION_URL
-        value: https://mobimatch.local/account-deletion
+        value: https://mobimatch-backend-gw7a.onrender.com/legal/account-deletion
