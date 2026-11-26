@@ -24,7 +24,10 @@
         "INTERNET",
         "ACCESS_NETWORK_STATE"
       ]
-    }
+    },
+    "plugins": [
+      "@react-native-google-signin/google-signin"
+    ]
   }
 }
 

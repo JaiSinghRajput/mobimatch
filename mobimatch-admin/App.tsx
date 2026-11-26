@@ -10,8 +10,15 @@ import {
   Alert,
   StatusBar,
   Platform,
+  Image,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  GoogleSignin,
+  statusCodes,
+  isSuccessResponse,
+  isErrorWithCode,
+} from '@react-native-google-signin/google-signin';
 import { adminApi } from './src/api/client';
 import { colors, spacing, typography } from './src/theme';
 import {
@@ -71,8 +78,8 @@ function AdminAppContent() {
     }
   };
 
-  // Input States
-  const [authEmailInput, setAuthEmailInput] = useState('admin@mobimatch.local');
+  // Auth State
+  const [deniedEmail, setDeniedEmail] = useState<string | null>(null);
 
   // Bulk & Manual Compatibility States
   const [compatMode, setCompatMode] = useState<'parser' | 'manual'>('parser');
@@ -177,20 +184,64 @@ function AdminAppContent() {
     }
   }, [currentUser, activeTab]);
 
-  // Auth Handler
+  // Configure Google Sign-In on mount
+  useEffect(() => {
+    GoogleSignin.configure({
+      webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || undefined,
+      offlineAccess: false,
+    });
+  }, []);
+
+  // Auth Handler (Native Google Sign-In)
   const handleSignIn = async () => {
+    const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+    if (!webClientId) {
+      Alert.alert(
+        'Google Sign-In Not Configured',
+        'EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID is missing. Add your Google Web Client ID in .env and rebuild the APK.'
+      );
+      return;
+    }
+
     setLoading(true);
+    let selectedEmail: string | null = null;
     try {
-      // Mock Google Token format for testing/development
-      const token = `mock-:${authEmailInput.trim()}:sub-admin-${Date.now()}:Administrator`;
-      const res = await adminApi.googleAuth(token);
+      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      const response = await GoogleSignin.signIn();
+      if (!isSuccessResponse(response)) {
+        return;
+      }
+
+      selectedEmail = response.data.user.email || null;
+      const idToken = response.data.idToken;
+      if (!idToken) {
+        Alert.alert('Sign In Error', 'Google did not return an ID token. Check your Web Client ID.');
+        return;
+      }
+
+      const res = await adminApi.googleAuth(idToken);
       setCurrentUser(res.user);
       setIsAllowlisted(true);
+      setDeniedEmail(null);
     } catch (err: any) {
       if (err.code === 'ADMIN_ACCESS_DENIED') {
+        setDeniedEmail(selectedEmail);
         setIsAllowlisted(false);
+      } else if (isErrorWithCode(err)) {
+        if (err.code === statusCodes.SIGN_IN_CANCELLED) {
+          return;
+        }
+        if (err.code === statusCodes.IN_PROGRESS) {
+          Alert.alert('Sign In', 'Google Sign-In is already in progress.');
+          return;
+        }
+        if (err.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+          Alert.alert('Play Services Required', 'Google Play Services is not available or needs an update.');
+          return;
+        }
+        Alert.alert('Sign In Error', err.message || `Google Sign-In failed (${err.code})`);
       } else {
-        Alert.alert('Sign In Error', err.message || 'Failed to sign in');
+        Alert.alert('Sign In Error', err.message || 'Failed to sign in with Google');
       }
     } finally {
       setLoading(false);
@@ -199,6 +250,7 @@ function AdminAppContent() {
 
   const handleSignOut = async () => {
     await adminApi.logout();
+    await GoogleSignin.signOut().catch(() => {});
     setCurrentUser(null);
     setPreview(null);
   };
@@ -698,12 +750,16 @@ function AdminAppContent() {
             Access Denied
           </Text>
           <Text style={[typography.body, { textAlign: 'center', marginBottom: 20 }]}>
-            Your Google account ({authEmailInput}) is not listed on the MobiMatch
+            Your Google account ({deniedEmail || 'selected account'}) is not listed on the MobiMatch
             administrator allowlist. Only authorized administrators can access this app.
           </Text>
           <TouchableOpacity
             style={[styles.button, { backgroundColor: colors.primary }]}
-            onPress={() => setIsAllowlisted(true)}
+            onPress={async () => {
+              await GoogleSignin.signOut().catch(() => {});
+              setDeniedEmail(null);
+              setIsAllowlisted(true);
+            }}
           >
             <Text style={[typography.button, { color: '#fff' }]}>
               Try Different Account
@@ -724,32 +780,27 @@ function AdminAppContent() {
           <Text style={[typography.h1, { color: colors.primary, marginBottom: 8 }]}>
             MobiMatch Admin
           </Text>
-          <Text style={[typography.bodySecondary, { textAlign: 'center', marginBottom: 24 }]}>
+          <Text style={[typography.bodySecondary, { textAlign: 'center', marginBottom: 28 }]}>
             Administrator Portal for Spare-Parts Compatibility & Catalog Management
           </Text>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Administrator Google Email</Text>
-            <TextInput
-              style={styles.input}
-              value={authEmailInput}
-              onChangeText={setAuthEmailInput}
-              autoCapitalize="none"
-              keyboardType="email-address"
-            />
-          </View>
-
           <TouchableOpacity
-            style={[styles.button, { backgroundColor: colors.primary }]}
+            style={styles.googleBtn}
+            activeOpacity={0.85}
             onPress={handleSignIn}
             disabled={loading}
           >
             {loading ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={colors.primary} />
             ) : (
-              <Text style={[typography.button, { color: '#fff' }]}>
-                Sign In with Google
-              </Text>
+              <>
+                <Image
+                  source={require('./assets/google-g.png')}
+                  style={styles.googleBtnIcon}
+                  resizeMode="contain"
+                />
+                <Text style={styles.googleBtnText}>Sign In with Google</Text>
+              </>
             )}
           </TouchableOpacity>
         </View>
@@ -3588,6 +3639,33 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     borderWidth: 1,
     borderColor: colors.border,
+  },
+  googleBtn: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surface,
+    borderWidth: 1.5,
+    borderColor: colors.borderDark,
+    borderRadius: 10,
+    paddingVertical: 13,
+    paddingHorizontal: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  googleBtnIcon: {
+    width: 22,
+    height: 22,
+    marginRight: 12,
+  },
+  googleBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.textPrimary,
   },
   // Advertisement & Monetization Styles
   adMasterCard: {

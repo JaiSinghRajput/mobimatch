@@ -11,9 +11,16 @@ import {
   Alert,
   Platform,
   Linking,
+  Image,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import * as Clipboard from 'expo-clipboard';
+import {
+  GoogleSignin,
+  statusCodes,
+  isSuccessResponse,
+  isErrorWithCode,
+} from '@react-native-google-signin/google-signin';
 import { userApi } from './src/api/client';
 import { colors, spacing, typography } from './src/theme';
 import { GoogleAdBanner } from './src/components/GoogleAdBanner';
@@ -40,8 +47,7 @@ function UserAppContent() {
   const [appConfig, setAppConfig] = useState<AppConfigResponse | null>(null);
   const [currentScreen, setCurrentScreen] = useState<Screen>('home');
 
-  // Auth & Profile Form States
-  const [authEmailInput, setAuthEmailInput] = useState('technician@example.com');
+  // Profile Form States
   const [phoneInput, setPhoneInput] = useState('');
   const [shopNameInput, setShopNameInput] = useState('');
   const [cityInput, setCityInput] = useState('');
@@ -138,18 +144,56 @@ function UserAppContent() {
     return () => clearTimeout(timer);
   }, [searchQuery, categories]);
 
-  // Auth Handler
+  // Configure Google Sign-In on mount
+  useEffect(() => {
+    GoogleSignin.configure({
+      webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || undefined,
+      offlineAccess: false,
+    });
+  }, []);
+
+  // Auth Handler (Native Google Sign-In)
   const handleSignIn = async () => {
+    const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+    if (!webClientId) {
+      Alert.alert(
+        'Google Sign-In Not Configured',
+        'EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID is missing. Add your Google Web Client ID in .env and rebuild the APK.'
+      );
+      return;
+    }
+
     setLoading(true);
     try {
-      const email = authEmailInput.trim().toLowerCase();
-      // Use deterministic Google sub based on email so registered user profile is preserved on repeat logins
-      const stableSub = 'google-sub-' + email.replace(/[^a-z0-9]/g, '_');
-      const mockToken = `mock-:${email}:${stableSub}:Technician User`;
-      const res = await userApi.googleAuth(mockToken);
+      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      const response = await GoogleSignin.signIn();
+      if (!isSuccessResponse(response)) {
+        return;
+      }
+
+      const idToken = response.data.idToken;
+      if (!idToken) {
+        Alert.alert('Sign In Error', 'Google did not return an ID token. Check your Web Client ID.');
+        return;
+      }
+
+      const res = await userApi.googleAuth(idToken);
       setCurrentUser(res.user);
     } catch (err: any) {
-      Alert.alert('Sign In Error', err.message || 'Failed to sign in');
+      if (isErrorWithCode(err)) {
+        if (err.code === statusCodes.SIGN_IN_CANCELLED) {
+          return;
+        }
+        if (err.code === statusCodes.IN_PROGRESS) {
+          Alert.alert('Sign In', 'Google Sign-In is already in progress.');
+          return;
+        }
+        if (err.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+          Alert.alert('Play Services Required', 'Google Play Services is not available or needs an update.');
+          return;
+        }
+      }
+      Alert.alert('Sign In Error', err.message || 'Failed to sign in with Google');
     } finally {
       setLoading(false);
     }
@@ -373,32 +417,27 @@ function UserAppContent() {
           <Text style={styles.brandingSubtitle}>
             Mobimatch by jhankar mobile
           </Text>
-          <Text style={[typography.bodySecondary, { textAlign: 'center', marginBottom: 24 }]}>
+          <Text style={[typography.bodySecondary, { textAlign: 'center', marginBottom: 28 }]}>
             Find mobile spare-part compatibility groups for phone repairs
           </Text>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Your Google Email</Text>
-            <TextInput
-              style={styles.input}
-              value={authEmailInput}
-              onChangeText={setAuthEmailInput}
-              autoCapitalize="none"
-              keyboardType="email-address"
-            />
-          </View>
-
           <TouchableOpacity
-            style={[styles.button, { backgroundColor: colors.primary }]}
+            style={styles.googleBtn}
+            activeOpacity={0.85}
             onPress={handleSignIn}
             disabled={loading}
           >
             {loading ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={colors.primary} />
             ) : (
-              <Text style={[typography.button, { color: '#fff' }]}>
-                Continue with Google
-              </Text>
+              <>
+                <Image
+                  source={require('./assets/google-g.png')}
+                  style={styles.googleBtnIcon}
+                  resizeMode="contain"
+                />
+                <Text style={styles.googleBtnText}>Continue with Google</Text>
+              </>
             )}
           </TouchableOpacity>
         </View>
@@ -1414,6 +1453,7 @@ function UserAppContent() {
                 style={[styles.button, { backgroundColor: colors.border, marginBottom: 10 }]}
                 onPress={async () => {
                   await userApi.logout();
+                  await GoogleSignin.signOut().catch(() => {});
                   setCurrentUser(null);
                   setCurrentScreen('home');
                 }}
@@ -1427,6 +1467,7 @@ function UserAppContent() {
                 style={[styles.button, { backgroundColor: colors.border, marginBottom: 14 }]}
                 onPress={async () => {
                   await userApi.logoutAll();
+                  await GoogleSignin.signOut().catch(() => {});
                   setCurrentUser(null);
                   setCurrentScreen('home');
                 }}
@@ -1932,6 +1973,33 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  googleBtn: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surface,
+    borderWidth: 1.5,
+    borderColor: colors.borderDark,
+    borderRadius: 10,
+    paddingVertical: 13,
+    paddingHorizontal: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  googleBtnIcon: {
+    width: 22,
+    height: 22,
+    marginRight: 12,
+  },
+  googleBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.textPrimary,
   },
   outlineBtn: {
     width: '100%',
