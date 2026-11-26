@@ -24,6 +24,8 @@
     "user:start": "npm run --workspace=mobimatch-user-app start",
     "build:apk:user": "npm run --workspace=mobimatch-user-app build:apk",
     "build:apk:admin": "npm run --workspace=mobimatch-admin-app build:apk",
+    "build:aab:user": "npm run --workspace=mobimatch-user-app build:aab",
+    "build:aab:admin": "npm run --workspace=mobimatch-admin-app build:aab",
     "credentials:user": "npm run --workspace=mobimatch-user-app credentials",
     "credentials:admin": "npm run --workspace=mobimatch-admin-app credentials"
   },
