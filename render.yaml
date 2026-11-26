@@ -18,9 +18,9 @@ services:
       - key: PORT
         value: 10000
       - key: DATABASE_URL
-        value: postgresql://mobimatch_db_user:v19JFBITSNNsJIYb1gJqHCP6zS6BpfH6@dpg-dbs5kjei0phs73c6d9mg-a/mobimatch_db
+        value: postgresql://mobimatch_db_oaje_user:cd0jT4txkKFI2ulSxVopFdIY4t4e19Ym@dpg-dc432sp7lnhs73f8u9t0-a/mobimatch_db_oaje
       - key: REDIS_URL
-        value: redis://red-dbs5isk9v7es73bom70g:6379
+        value: redis://red-dc432461egvs73f6rdtg:6379
       - key: INITIAL_ADMIN_EMAIL
         value: jaisinghrajput9461@gmail.com
       - key: JWT_ACCESS_SECRET
