@@ -33,16 +33,17 @@
           "android": {
             "enableProguardInReleaseBuilds": true,
             "enableShrinkResourcesInReleaseBuilds": true,
-            "usesCleartextTraffic": false
+            "usesCleartextTraffic": false,
+            "enableMinifyInReleaseBuilds": true
           }
         }
       ]
     ],
+    "owner": "mobimatch-apps-team",
     "extra": {
       "eas": {
-        "projectId": "ba18e877-5043-48b4-9f25-76d2ea5c9b5b"
+        "projectId": "63fb5fe6-329e-4f02-8c59-5a43d9f857ea"
       }
-    },
-    "owner": "mobimatch-apps-team"
+    }
   }
 }
