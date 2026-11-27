@@ -109,19 +109,24 @@ function UserAppContent() {
   const [reqModelNumber, setReqModelNumber] = useState('');
   const [reqNotes, setReqNotes] = useState('');
 
-  // Initial Config & Session Restoration
+  // Initial Config & Session Restoration (single atomic startup transition)
   useEffect(() => {
-    userApi
-      .getAppConfig()
-      .then(setAppConfig)
-      .catch((e) => console.log('Config note:', e.message));
-
-    userApi
-      .restoreSession()
-      .then((user) => {
-        if (user) setCurrentUser(user);
-      })
-      .finally(() => setRestoringSession(false));
+    let active = true;
+    Promise.allSettled([userApi.getAppConfig(), userApi.restoreSession()]).then(
+      ([configResult, sessionResult]) => {
+        if (!active) return;
+        if (configResult.status === 'fulfilled' && configResult.value) {
+          setAppConfig(configResult.value);
+        }
+        if (sessionResult.status === 'fulfilled' && sessionResult.value) {
+          setCurrentUser(sessionResult.value);
+        }
+        setRestoringSession(false);
+      }
+    );
+    return () => {
+      active = false;
+    };
   }, []);
 
   // When user is authenticated, preload brands & categories so search & browsing are instant
@@ -153,17 +158,25 @@ function UserAppContent() {
       setCategorySearchResults(matchedCats);
     }
 
-    // 2. Debounce backend models search (280ms)
+    // 2. Debounce backend models search (280ms) with stale-response guard
+    let cancelled = false;
     const timer = setTimeout(async () => {
       try {
         const results = await userApi.searchModels(q);
-        setSearchResults(results);
+        if (!cancelled) {
+          setSearchResults(results);
+        }
       } catch (err: any) {
-        console.warn('Search error:', err.message);
+        if (!cancelled) {
+          console.warn('Search error:', err.message);
+        }
       }
     }, 280);
 
-    return () => clearTimeout(timer);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [searchQuery, categories]);
 
   // Configure Google Sign-In on mount
@@ -455,19 +468,25 @@ function UserAppContent() {
   }
 
   // ==========================================
-  // Render: Restoring Session Splash
+  // Render: Branded Startup Splash Screen
   // ==========================================
   if (restoringSession) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.surface }]}>
+        <StatusBar barStyle="dark-content" />
         <View style={styles.centerCard}>
-          <Text style={[typography.h1, { color: colors.primary, marginBottom: 8 }]}>
+          <Image
+            source={require('./assets/icon.png')}
+            style={styles.splashLogo}
+            resizeMode="contain"
+          />
+          <Text style={[typography.h1, { color: colors.primary, marginBottom: 4 }]}>
             MobiMatch
           </Text>
-          <Text style={[styles.brandingSubtitle, { marginBottom: 20 }]}>
+          <Text style={[styles.brandingSubtitle, { marginBottom: 24 }]}>
             Mobimatch by jhankar mobile
           </Text>
-          <ActivityIndicator size="large" color={colors.primary} />
+          <ActivityIndicator size="small" color={colors.primary} />
         </View>
       </SafeAreaView>
     );
@@ -573,25 +592,57 @@ function UserAppContent() {
           </View>
 
           {/* Legal Checkboxes */}
-          <TouchableOpacity
-            style={styles.checkboxRow}
-            onPress={() => setTermsAccepted(!termsAccepted)}
-          >
-            <View style={[styles.checkbox, termsAccepted && styles.checkboxActive]} />
-            <Text style={typography.bodySecondary}>
-              I accept the <Text style={{ color: colors.primary }}>Terms & Conditions</Text>
+          <View style={styles.checkboxRow}>
+            <TouchableOpacity
+              style={[styles.checkbox, termsAccepted && styles.checkboxActive]}
+              onPress={() => setTermsAccepted(!termsAccepted)}
+              activeOpacity={0.8}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: termsAccepted }}
+            >
+              {termsAccepted && <Text style={styles.checkboxTick}>✓</Text>}
+            </TouchableOpacity>
+            <Text style={[typography.bodySecondary, { flex: 1 }]}>
+              <Text onPress={() => setTermsAccepted(!termsAccepted)}>I accept the </Text>
+              <Text
+                style={{ color: colors.primary, fontWeight: '600', textDecorationLine: 'underline' }}
+                onPress={() => {
+                  const url = appConfig?.termsUrl || 'https://mobimatch-backend-gw7a.onrender.com/legal/terms';
+                  Linking.openURL(url).catch(() =>
+                    Alert.alert('Unable to Open Link', 'Could not open Terms & Conditions.')
+                  );
+                }}
+              >
+                Terms & Conditions
+              </Text>
             </Text>
-          </TouchableOpacity>
+          </View>
 
-          <TouchableOpacity
-            style={styles.checkboxRow}
-            onPress={() => setPrivacyAccepted(!privacyAccepted)}
-          >
-            <View style={[styles.checkbox, privacyAccepted && styles.checkboxActive]} />
-            <Text style={typography.bodySecondary}>
-              I accept the <Text style={{ color: colors.primary }}>Privacy Policy</Text>
+          <View style={styles.checkboxRow}>
+            <TouchableOpacity
+              style={[styles.checkbox, privacyAccepted && styles.checkboxActive]}
+              onPress={() => setPrivacyAccepted(!privacyAccepted)}
+              activeOpacity={0.8}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: privacyAccepted }}
+            >
+              {privacyAccepted && <Text style={styles.checkboxTick}>✓</Text>}
+            </TouchableOpacity>
+            <Text style={[typography.bodySecondary, { flex: 1 }]}>
+              <Text onPress={() => setPrivacyAccepted(!privacyAccepted)}>I accept the </Text>
+              <Text
+                style={{ color: colors.primary, fontWeight: '600', textDecorationLine: 'underline' }}
+                onPress={() => {
+                  const url = appConfig?.privacyPolicyUrl || 'https://mobimatch-backend-gw7a.onrender.com/legal/privacy';
+                  Linking.openURL(url).catch(() =>
+                    Alert.alert('Unable to Open Link', 'Could not open Privacy Policy.')
+                  );
+                }}
+              >
+                Privacy Policy
+              </Text>
             </Text>
-          </TouchableOpacity>
+          </View>
 
           <TouchableOpacity
             style={[styles.button, { backgroundColor: colors.primary, marginTop: 16 }]}
@@ -1349,13 +1400,6 @@ function UserAppContent() {
         {/* Screen 9: Redesigned Profile Screen */}
         {currentScreen === 'profile' && (
           <View>
-            <TouchableOpacity
-              style={styles.backBtn}
-              onPress={() => setCurrentScreen('home')}
-            >
-              <Text style={{ color: colors.primary, fontWeight: '700' }}>← Back to Home</Text>
-            </TouchableOpacity>
-
             {/* Profile Hero Card */}
             <View style={styles.profileHeroCard}>
               <View style={styles.profileAvatarLarge}>
@@ -1574,35 +1618,37 @@ function UserAppContent() {
         </Text>
       </View>
 
-      {/* Clean 2-Tab Bottom Navigation Bar (Home & Profile) */}
-      <View style={styles.bottomNav}>
-        <TouchableOpacity
-          style={[styles.bottomNavItem, currentScreen !== 'profile' && styles.bottomNavItemActive]}
-          onPress={() => {
-            setCurrentScreen('home');
-            setSearchQuery('');
-          }}
-        >
-          <Text style={[styles.bottomNavIcon, currentScreen !== 'profile' && styles.bottomNavIconActive]}>
-            🏠
-          </Text>
-          <Text style={[styles.bottomNavLabel, currentScreen !== 'profile' && styles.bottomNavLabelActive]}>
-            Home
-          </Text>
-        </TouchableOpacity>
+      {/* Clean 2-Tab Bottom Navigation Bar (Hidden on Profile screen) */}
+      {currentScreen !== 'profile' && (
+        <View style={styles.bottomNav}>
+          <TouchableOpacity
+            style={[styles.bottomNavItem, styles.bottomNavItemActive]}
+            onPress={() => {
+              setCurrentScreen('home');
+              setSearchQuery('');
+            }}
+          >
+            <Text style={[styles.bottomNavIcon, styles.bottomNavIconActive]}>
+              🏠
+            </Text>
+            <Text style={[styles.bottomNavLabel, styles.bottomNavLabelActive]}>
+              Home
+            </Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.bottomNavItem, currentScreen === 'profile' && styles.bottomNavItemActive]}
-          onPress={() => setCurrentScreen('profile')}
-        >
-          <Text style={[styles.bottomNavIcon, currentScreen === 'profile' && styles.bottomNavIconActive]}>
-            👤
-          </Text>
-          <Text style={[styles.bottomNavLabel, currentScreen === 'profile' && styles.bottomNavLabelActive]}>
-            Profile
-          </Text>
-        </TouchableOpacity>
-      </View>
+          <TouchableOpacity
+            style={styles.bottomNavItem}
+            onPress={() => setCurrentScreen('profile')}
+          >
+            <Text style={styles.bottomNavIcon}>
+              👤
+            </Text>
+            <Text style={styles.bottomNavLabel}>
+              Profile
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -2026,15 +2072,30 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 4,
+    width: 22,
+    height: 22,
+    borderRadius: 5,
     borderWidth: 2,
     borderColor: colors.primary,
     marginRight: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surface,
   },
   checkboxActive: {
     backgroundColor: colors.primary,
+  },
+  checkboxTick: {
+    color: colors.textInverse,
+    fontSize: 13,
+    fontWeight: '800',
+    lineHeight: 16,
+  },
+  splashLogo: {
+    width: 96,
+    height: 96,
+    borderRadius: 20,
+    marginBottom: 16,
   },
   button: {
     width: '100%',

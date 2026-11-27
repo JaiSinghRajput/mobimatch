@@ -14,7 +14,7 @@ let cachedAdConfig: any = null;
 let lastFetchTime = 0;
 const CACHE_TTL_MS = 60 * 1000; // 1 minute
 
-export const GoogleAdBanner: React.FC<GoogleAdBannerProps> = ({ placement = 'home', style }) => {
+export const GoogleAdBanner: React.FC<GoogleAdBannerProps> = React.memo(({ placement = 'home', style }) => {
   const [adConfig, setAdConfig] = useState<any>(cachedAdConfig);
 
   useEffect(() => {
@@ -154,7 +154,7 @@ export const GoogleAdBanner: React.FC<GoogleAdBannerProps> = ({ placement = 'hom
       </TouchableOpacity>
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   adContainer: {

@@ -164,34 +164,37 @@ function AdminAppContent() {
   const [bannerPlacementSelect, setBannerPlacementSelect] = useState<'all' | 'home' | 'results' | 'catalog'>('all');
   const [creatingBanner, setCreatingBanner] = useState(false);
 
-  // Initial Config & Session Restoration
+  // Initial Config & Session Restoration (single atomic startup transition)
   useEffect(() => {
-    adminApi
-      .getAppConfig()
-      .then(setAppConfig)
-      .catch((err) => console.log('Config fetch note:', err.message));
-
-    adminApi
-      .restoreSession()
-      .then((user) => {
-        if (user) {
-          setCurrentUser(user);
+    let active = true;
+    Promise.allSettled([adminApi.getAppConfig(), adminApi.restoreSession()]).then(
+      ([configResult, sessionResult]) => {
+        if (!active) return;
+        if (configResult.status === 'fulfilled' && configResult.value) {
+          setAppConfig(configResult.value);
+        }
+        if (sessionResult.status === 'fulfilled' && sessionResult.value) {
+          setCurrentUser(sessionResult.value);
           setIsAllowlisted(true);
         }
-      })
-      .finally(() => setRestoringSession(false));
+        setRestoringSession(false);
+      }
+    );
+    return () => {
+      active = false;
+    };
   }, []);
 
-  // Fetch Tab Data
+  // Fetch Tab Data (avoid redundant re-fetches when catalog is already cached)
   useEffect(() => {
     if (!currentUser) return;
 
-    if (activeTab === 'compatibility' || activeTab === 'categories') {
+    if ((activeTab === 'compatibility' || activeTab === 'categories') && categories.length === 0) {
       loadCategories();
     }
     if (activeTab === 'compatibility' || activeTab === 'brands' || activeTab === 'models') {
-      loadBrands();
-      loadModels();
+      if (brands.length === 0) loadBrands();
+      if (models.length === 0) loadModels();
     }
     if (activeTab === 'users') {
       loadUsers();
@@ -794,16 +797,25 @@ function AdminAppContent() {
   }
 
   // ==========================================
-  // Render: Restoring Session Splash
+  // Render: Branded Startup Splash Screen
   // ==========================================
   if (restoringSession) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.surface }]}>
+        <StatusBar barStyle="dark-content" />
         <View style={styles.centerCard}>
-          <Text style={[typography.h1, { color: colors.primary, marginBottom: 16 }]}>
+          <Image
+            source={require('./assets/icon.png')}
+            style={styles.splashLogo}
+            resizeMode="contain"
+          />
+          <Text style={[typography.h1, { color: colors.primary, marginBottom: 4 }]}>
             MobiMatch Admin
           </Text>
-          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[typography.bodySecondary, { marginBottom: 24 }]}>
+            Catalog & Compatibility Portal
+          </Text>
+          <ActivityIndicator size="small" color={colors.primary} />
         </View>
       </SafeAreaView>
     );
@@ -3125,6 +3137,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: spacing.lg,
+  },
+  splashLogo: {
+    width: 96,
+    height: 96,
+    borderRadius: 20,
+    marginBottom: 16,
   },
   header: {
     flexDirection: 'row',
