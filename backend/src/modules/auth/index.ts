@@ -122,6 +122,87 @@ export const authRoutes: FastifyPluginAsync = async (server: FastifyInstance) =>
     return reply.status(200).send(response);
   });
 
+  // POST /v1/auth/demo (Enabled only when DEMO_MODE=true; accepts test@mobimatch.local without password)
+  server.post<{ Body: { email?: string; clientApp?: 'user' | 'admin' } }>(
+    '/v1/auth/demo',
+    async (req, reply) => {
+      if (!config.demoMode) {
+        return reply.status(403).send({
+          error: {
+            code: 'DEMO_MODE_DISABLED',
+            message: 'Demo login is disabled in this environment.',
+            requestId: req.id,
+          },
+        });
+      }
+
+      const email = (req.body?.email || '').trim().toLowerCase();
+      const clientApp = req.body?.clientApp === 'admin' ? 'admin' : 'user';
+
+      if (email !== 'test@mobimatch.local') {
+        return reply.status(403).send({
+          error: {
+            code: 'DEMO_EMAIL_NOT_ALLOWED',
+            message: 'Only test@mobimatch.local is permitted for demo login.',
+            requestId: req.id,
+          },
+        });
+      }
+
+      const user = await findOrCreateUserByGoogle({
+        sub: 'demo-test-mobimatch-local',
+        email: 'test@mobimatch.local',
+        name: 'Demo Reviewer',
+      });
+
+      if (user.status === 'deactivated' || user.status === 'deleted') {
+        return reply.status(403).send({
+          error: {
+            code: 'ACCOUNT_INACTIVE',
+            message: 'This demo account is inactive.',
+            requestId: req.id,
+          },
+        });
+      }
+
+      const isAdmin = clientApp === 'admin' ? true : await isEmailInAdminAllowlist(user.email);
+      const session = await createSession(
+        user.id,
+        clientApp === 'admin' ? 'MobiMatch Admin (Demo)' : 'MobiMatch User App (Demo)'
+      );
+
+      const accessToken = server.jwt.sign(
+        {
+          userId: user.id,
+          email: user.email,
+          isAdmin,
+        },
+        { expiresIn: config.jwtAccessExpiresIn }
+      );
+
+      const isProfileComplete = Boolean(user.phone && user.shopName && user.city);
+
+      const response: TokenResponse = {
+        accessToken,
+        refreshToken: session.rawRefreshToken,
+        expiresIn: config.jwtAccessExpiresIn,
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          phone: user.phone || null,
+          shopName: user.shopName || null,
+          city: user.city || null,
+          status: user.status as 'active' | 'deactivated' | 'deleted',
+          isAdmin,
+          isProfileComplete,
+        },
+      };
+
+      return reply.status(200).send(response);
+    }
+  );
+
   // POST /v1/auth/refresh
   server.post('/v1/auth/refresh', async (req, reply) => {
     const parseResult = RefreshTokenRequestSchema.safeParse(req.body);

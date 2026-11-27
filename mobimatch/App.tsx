@@ -63,6 +63,7 @@ function UserAppContent() {
   const [currentScreen, setCurrentScreen] = useState<Screen>('home');
 
   // Profile Form States
+  const [demoEmailInput, setDemoEmailInput] = useState('test@mobimatch.local');
   const [phoneInput, setPhoneInput] = useState('');
   const [shopNameInput, setShopNameInput] = useState('');
   const [cityInput, setCityInput] = useState('');
@@ -528,6 +529,41 @@ function UserAppContent() {
               </>
             )}
           </TouchableOpacity>
+
+          {appConfig?.demoMode && (
+            <View style={{ width: '100%', marginTop: 22, paddingTop: 18, borderTopWidth: 1, borderTopColor: colors.border }}>
+              <Text style={[styles.label, { textAlign: 'center', marginBottom: 8 }]}>
+                Demo / Reviewer Access
+              </Text>
+              <TextInput
+                style={[styles.input, { marginBottom: 10 }]}
+                value={demoEmailInput}
+                onChangeText={setDemoEmailInput}
+                placeholder="test@mobimatch.local"
+                autoCapitalize="none"
+                keyboardType="email-address"
+              />
+              <TouchableOpacity
+                style={[styles.outlineBtn, { borderColor: colors.primary }]}
+                disabled={loading}
+                onPress={async () => {
+                  setLoading(true);
+                  try {
+                    const res = await userApi.demoLogin(demoEmailInput.trim());
+                    setCurrentUser(res.user);
+                  } catch (err: any) {
+                    Alert.alert('Demo Sign In Error', err.message || 'Demo login failed');
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+              >
+                <Text style={[styles.outlineBtnText, { color: colors.primary }]}>
+                  Demo Sign In (No Password)
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
 
         {/* Footer Branding */}

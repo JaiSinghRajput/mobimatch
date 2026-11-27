@@ -20,13 +20,13 @@ function renderLegalPage(title: string, bodyHtml: string): string {
     <h1>${title}</h1>
     ${bodyHtml}
   </div>
-  <footer>MobiMatch by Jhankar Mobile • Crafted by LaughingDev</footer>
+  <footer>MobiMatch by Jhankar Mobile • Support: Contact.mobimatch@gmail.com • Crafted by LaughingDev</footer>
 </body>
 </html>`;
 }
 
 export const legalRoutes: FastifyPluginAsync = async (server) => {
-  server.get('/legal/terms', async (_req, reply) => {
+  const termsHandler = async (_req: any, reply: any) => {
     const html = renderLegalPage(
       'Terms & Conditions',
       `<p>Effective Date: November 2026</p>
@@ -36,12 +36,14 @@ export const legalRoutes: FastifyPluginAsync = async (server) => {
       <h2>2. Compatibility Data</h2>
       <p>While we verify compatibility entries regularly, technicians should always physically inspect connectors and flex cables prior to installation.</p>
       <h2>3. Prohibited Conduct</h2>
-      <p>Automated scraping, credential sharing, or submitting false reports is prohibited and may result in account deactivation.</p>`
+      <p>Automated scraping, credential sharing, or submitting false reports is prohibited and may result in account deactivation.</p>
+      <h2>4. Support</h2>
+      <p>For questions or assistance, contact <a href="mailto:Contact.mobimatch@gmail.com">Contact.mobimatch@gmail.com</a>.</p>`
     );
     return reply.type('text/html; charset=utf-8').send(html);
-  });
+  };
 
-  server.get('/legal/privacy', async (_req, reply) => {
+  const privacyHandler = async (_req: any, reply: any) => {
     const html = renderLegalPage(
       'Privacy Policy',
       `<p>Effective Date: November 2026</p>
@@ -55,10 +57,16 @@ export const legalRoutes: FastifyPluginAsync = async (server) => {
       <h2>2. Advertising</h2>
       <p>The MobiMatch Technician App may display Google AdMob banners or Jhankar Mobile promotional banners.</p>
       <h2>3. Account Deletion</h2>
-      <p>You may permanently delete your account and revoke all active sessions directly in the app under <em>Profile → Delete Account</em>, or by visiting <a href="/legal/account-deletion">/legal/account-deletion</a>.</p>`
+      <p>You may permanently delete your account and revoke all active sessions directly in the app under <em>Profile → Delete Account</em>, or by visiting <a href="/legal/account-deletion">/legal/account-deletion</a>.</p>
+      <h2>4. Support & Contact</h2>
+      <p>If you have any privacy questions or data requests, email our support team at <a href="mailto:Contact.mobimatch@gmail.com">Contact.mobimatch@gmail.com</a>.</p>`
     );
     return reply.type('text/html; charset=utf-8').send(html);
-  });
+  };
+
+  server.get('/legal/terms', termsHandler);
+
+  server.get('/legal/privacy', privacyHandler);
 
   server.get('/legal/account-deletion', async (_req, reply) => {
     const html = renderLegalPage(
@@ -67,11 +75,11 @@ export const legalRoutes: FastifyPluginAsync = async (server) => {
       <h2>Option 1: In-App Deletion (Instant)</h2>
       <ol>
         <li>Open the <strong>MobiMatch</strong> app on your Android device.</li>
-        <li>Tap the <strong>Profile</strong> tab in the bottom navigation bar.</li>
-        <li>Scroll to <em>Account & Session</em> and tap <strong>Delete Account Permanently</strong>.</li>
+        <li>Tap the <strong>Profile</strong> tab in the top header.</li>
+        <li>Scroll to <em>Account & Session</em> and tap <strong>Permanently Delete MobiMatch Account</strong>.</li>
       </ol>
       <h2>Option 2: Email Request</h2>
-      <p>If you cannot access your device, email <strong>contact.mobimatch@gmail.com</strong> from your registered Google email address with the subject <em>"Delete MobiMatch Account"</em>.</p>`
+      <p>If you cannot access your device, email <a href="mailto:Contact.mobimatch@gmail.com">Contact.mobimatch@gmail.com</a> from your registered Google email address with the subject <em>"Delete MobiMatch Account"</em>.</p>`
     );
     return reply.type('text/html; charset=utf-8').send(html);
   });

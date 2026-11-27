@@ -19,7 +19,7 @@ export async function seedInitialData() {
 
   try {
     // 2. Ensure initial administrator is registered in admin_allowlist
-    const adminEmail = (config.initialAdminEmail || 'admin@mobimatch.local').trim().toLowerCase();
+    const adminEmail = (config.initialAdminEmail || 'Contact.mobimatch@gmail.com').trim().toLowerCase();
 
     const existingAdmin = await client.query(
       'SELECT id FROM admin_allowlist WHERE email_normalized = $1 LIMIT 1',

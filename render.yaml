@@ -29,6 +29,8 @@ services:
         generateValue: true
       - key: DEV_MOCK_AUTH
         value: "false"
+      - key: DEMO_MODE
+        value: "false"
       - key: GOOGLE_CLIENT_IDS
         sync: false
       - key: APP_MAINTENANCE_MODE
@@ -36,7 +38,7 @@ services:
       - key: USER_APP_UPDATE_URL
         value: https://play.google.com/store/apps/details?id=com.mobimatch.app
       - key: ADMIN_APP_UPDATE_URL
-        value: https://mobimatch.local/admin-update
+        value: https://mobimatch-backend-gw7a.onrender.com/legal/terms
       - key: TERMS_URL
         value: https://mobimatch-backend-gw7a.onrender.com/legal/terms
       - key: PRIVACY_POLICY_URL

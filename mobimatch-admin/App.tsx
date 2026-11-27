@@ -96,6 +96,7 @@ function AdminAppContent() {
 
   // Auth State
   const [deniedEmail, setDeniedEmail] = useState<string | null>(null);
+  const [demoEmailInput, setDemoEmailInput] = useState('test@mobimatch.local');
 
   // Bulk & Manual Compatibility States
   const [compatMode, setCompatMode] = useState<'parser' | 'manual'>('parser');
@@ -885,6 +886,43 @@ function AdminAppContent() {
               </>
             )}
           </TouchableOpacity>
+
+          {appConfig?.demoMode && (
+            <View style={{ width: '100%', marginTop: 22, paddingTop: 18, borderTopWidth: 1, borderTopColor: colors.border }}>
+              <Text style={[styles.label, { textAlign: 'center', marginBottom: 8 }]}>
+                Demo / Reviewer Access
+              </Text>
+              <TextInput
+                style={[styles.input, { marginBottom: 10 }]}
+                value={demoEmailInput}
+                onChangeText={setDemoEmailInput}
+                placeholder="test@mobimatch.local"
+                autoCapitalize="none"
+                keyboardType="email-address"
+              />
+              <TouchableOpacity
+                style={[styles.button, { backgroundColor: colors.surfaceSubtle, borderWidth: 1, borderColor: colors.primary }]}
+                disabled={loading}
+                onPress={async () => {
+                  setLoading(true);
+                  try {
+                    const res = await adminApi.demoLogin(demoEmailInput.trim());
+                    setCurrentUser(res.user);
+                    setIsAllowlisted(true);
+                    setDeniedEmail(null);
+                  } catch (err: any) {
+                    Alert.alert('Demo Sign In Error', err.message || 'Demo login failed');
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+              >
+                <Text style={[typography.button, { color: colors.primary }]}>
+                  Demo Sign In (No Password)
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       </SafeAreaView>
     );
@@ -2512,7 +2550,7 @@ function AdminAppContent() {
                 currentUser?.email &&
                 adm.emailNormalized.toLowerCase() === currentUser.email.toLowerCase().trim();
               const isEnvAdmin =
-                adm.emailNormalized.toLowerCase() === 'admin@mobimatch.local' ||
+                adm.emailNormalized.toLowerCase() === 'contact.mobimatch@gmail.com' ||
                 adm.emailNormalized.toLowerCase() === 'jaisinghrajput9461@gmail.com' ||
                 (appConfig &&
                   adm.emailNormalized.toLowerCase() ===

@@ -113,6 +113,15 @@ class AdminApiClient {
     return res;
   }
 
+  async demoLogin(email: string): Promise<TokenResponse> {
+    const res = await this.request<TokenResponse>('/v1/auth/demo', {
+      method: 'POST',
+      body: JSON.stringify({ email, clientApp: 'admin' }),
+    });
+    this.setTokens(res.accessToken, res.refreshToken);
+    return res;
+  }
+
   async refreshSession(): Promise<boolean> {
     if (!this.refreshToken) return false;
     try {

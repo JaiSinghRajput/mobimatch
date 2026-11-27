@@ -1267,6 +1267,7 @@ export declare const AppConfigResponseSchema: z.ZodObject<{
     termsUrl: z.ZodString;
     privacyPolicyUrl: z.ZodString;
     accountDeletionUrl: z.ZodString;
+    demoMode: z.ZodOptional<z.ZodBoolean>;
 }, "strip", z.ZodTypeAny, {
     isMaintenanceMode: boolean;
     maintenanceMessage: string;
@@ -1279,6 +1280,7 @@ export declare const AppConfigResponseSchema: z.ZodObject<{
     termsUrl: string;
     privacyPolicyUrl: string;
     accountDeletionUrl: string;
+    demoMode?: boolean | undefined;
 }, {
     isMaintenanceMode: boolean;
     maintenanceMessage: string;
@@ -1291,6 +1293,7 @@ export declare const AppConfigResponseSchema: z.ZodObject<{
     termsUrl: string;
     privacyPolicyUrl: string;
     accountDeletionUrl: string;
+    demoMode?: boolean | undefined;
 }>;
 export type AppConfigResponse = z.infer<typeof AppConfigResponseSchema>;
 export declare const AdSettingsSchema: z.ZodObject<{

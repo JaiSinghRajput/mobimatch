@@ -52,6 +52,7 @@ export const healthRoutes: FastifyPluginAsync = async (server: FastifyInstance) 
       termsUrl: config.termsUrl,
       privacyPolicyUrl: config.privacyPolicyUrl,
       accountDeletionUrl: config.accountDeletionUrl,
+      demoMode: config.demoMode,
     };
     return reply.status(200).send(response);
   });

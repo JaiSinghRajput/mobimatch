@@ -334,6 +334,7 @@ export const AppConfigResponseSchema = z.object({
   termsUrl: z.string(),
   privacyPolicyUrl: z.string(),
   accountDeletionUrl: z.string(),
+  demoMode: z.boolean().optional(),
 });
 export type AppConfigResponse = z.infer<typeof AppConfigResponseSchema>;
 

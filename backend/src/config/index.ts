@@ -18,6 +18,7 @@ export interface AppConfig {
   initialAdminEmail: string;
   googleClientIds: string[];
   devMockAuth: boolean;
+  demoMode: boolean;
   maintenanceMode: boolean;
   maintenanceMessage: string;
   minUserAppVersion: string;
@@ -51,7 +52,8 @@ export const config: AppConfig = {
     10
   ), // 30 days default
   initialAdminEmail: (
-    process.env.INITIAL_ADMIN_EMAIL || 'admin@mobimatch.local'
+    process.env.INITIAL_ADMIN_EMAIL ||
+    (process.env.NODE_ENV === 'test' ? 'admin@mobimatch.local' : 'Contact.mobimatch@gmail.com')
   )
     .trim()
     .toLowerCase(),
@@ -63,6 +65,7 @@ export const config: AppConfig = {
     process.env.DEV_MOCK_AUTH === 'true' ||
     process.env.NODE_ENV === 'test' ||
     (process.env.NODE_ENV !== 'production' && !process.env.GOOGLE_CLIENT_IDS),
+  demoMode: process.env.DEMO_MODE === 'true',
   maintenanceMode: process.env.APP_MAINTENANCE_MODE === 'true',
   maintenanceMessage:
     process.env.APP_MAINTENANCE_MESSAGE ||

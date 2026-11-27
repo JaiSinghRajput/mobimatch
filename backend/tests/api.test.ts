@@ -761,4 +761,47 @@ describe('MobiMatch Backend API Integration Test Suite', () => {
       expect(deleteRes.body.success).toBe(true);
     });
   });
+
+  // ==========================================
+  // 10. Legal Pages & Demo Mode Auth
+  // ==========================================
+  describe('Legal Pages & Demo Mode Auth', () => {
+    it('GET /privacy and /legal/privacy serve privacy policy with Contact.mobimatch@gmail.com', async () => {
+      const res = await request.get('/privacy');
+      expect(res.status).toBe(200);
+      expect(res.text).toContain('Contact.mobimatch@gmail.com');
+
+      const legalRes = await request.get('/legal/privacy');
+      expect(legalRes.status).toBe(200);
+      expect(legalRes.text).toContain('Contact.mobimatch@gmail.com');
+    });
+
+    it('POST /v1/auth/demo rejects login when DEMO_MODE is false and accepts test@mobimatch.local when enabled', async () => {
+      const disabledRes = await request
+        .post('/v1/auth/demo')
+        .send({ email: 'test@mobimatch.local', clientApp: 'user' });
+      expect(disabledRes.status).toBe(403);
+      expect(disabledRes.body.error.code).toBe('DEMO_MODE_DISABLED');
+
+      const { config } = await import('../src/config');
+      const prevDemoMode = config.demoMode;
+      config.demoMode = true;
+      try {
+        const badEmailRes = await request
+          .post('/v1/auth/demo')
+          .send({ email: 'other@example.com', clientApp: 'user' });
+        expect(badEmailRes.status).toBe(403);
+        expect(badEmailRes.body.error.code).toBe('DEMO_EMAIL_NOT_ALLOWED');
+
+        const okRes = await request
+          .post('/v1/auth/demo')
+          .send({ email: 'test@mobimatch.local', clientApp: 'user' });
+        expect(okRes.status).toBe(200);
+        expect(okRes.body).toHaveProperty('accessToken');
+        expect(okRes.body.user.email).toBe('test@mobimatch.local');
+      } finally {
+        config.demoMode = prevDemoMode;
+      }
+    });
+  });
 });

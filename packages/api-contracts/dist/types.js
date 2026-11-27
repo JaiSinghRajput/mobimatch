@@ -261,6 +261,7 @@ exports.AppConfigResponseSchema = zod_1.z.object({
     termsUrl: zod_1.z.string(),
     privacyPolicyUrl: zod_1.z.string(),
     accountDeletionUrl: zod_1.z.string(),
+    demoMode: zod_1.z.boolean().optional(),
 });
 // ==========================================
 // Advertisement Management
