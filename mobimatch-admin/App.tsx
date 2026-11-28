@@ -201,16 +201,16 @@ function AdminAppContent() {
     };
   }, []);
 
-  // Fetch Tab Data (avoid redundant re-fetches when catalog is already cached)
+  // Fetch Tab Data
   useEffect(() => {
     if (!currentUser) return;
 
-    if ((activeTab === 'compatibility' || activeTab === 'categories') && categories.length === 0) {
+    if (activeTab === 'compatibility' || activeTab === 'categories') {
       loadCategories();
     }
     if (activeTab === 'compatibility' || activeTab === 'brands' || activeTab === 'models') {
-      if (brands.length === 0) loadBrands();
-      if (models.length === 0) loadModels();
+      loadBrands();
+      loadModels();
     }
     if (activeTab === 'users') {
       loadUsers();
@@ -690,6 +690,9 @@ function AdminAppContent() {
       Alert.alert('Success', 'Compatibility groups published successfully in one atomic transaction!');
       setPreview(null);
       setBulkTextInput('');
+      loadBrands();
+      loadModels();
+      loadCompatGroups();
     } catch (err: any) {
       Alert.alert('Publish Error', err.message || 'Failed to publish compatibility group');
     } finally {
@@ -799,6 +802,9 @@ function AdminAppContent() {
         `Successfully linked ${manualSelectedModels.length} models as compatible for this category!`
       );
       setManualSelectedModels([]);
+      loadBrands();
+      loadModels();
+      loadCompatGroups();
     } catch (err: any) {
       Alert.alert('Publish Error', err.message || 'Failed to publish compatibility group');
     } finally {
@@ -2035,7 +2041,7 @@ function AdminAppContent() {
                       </View>
                       <Text style={{ fontSize: 13, color: colors.textPrimary, lineHeight: 19 }}>
                         {(g.members || [])
-                          .map((m: any) => `${m.brandName} ${m.name}`)
+                          .map((m: any) => `${m.brandName} ${m.modelName || m.name || ''}`)
                           .join('  •  ')}
                       </Text>
                     </View>

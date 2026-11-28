@@ -285,7 +285,7 @@ export async function generateParsePreview(
           });
         } else {
           // Check if first word is a possible new brand
-          const parts = token.raw.split(' ');
+          const parts = token.raw.trim().split(/\s+/);
           const firstWord = parts[0];
           const rest = parts.slice(1).join(' ');
 
