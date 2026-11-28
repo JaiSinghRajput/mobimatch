@@ -689,3 +689,55 @@ export async function autoDeduplicateCategories() {
   };
 }
 
+export async function deleteBrand(id: string) {
+  const db = getDb();
+  const linkedModels = await db
+    .select({ id: mobileModels.id })
+    .from(mobileModels)
+    .where(eq(mobileModels.brandId, id))
+    .limit(1);
+
+  if (linkedModels.length > 0) {
+    const err: any = new Error(
+      'Cannot delete brand while it still has mobile models. Delete or reassign its models first.'
+    );
+    err.code = 'BRAND_IN_USE';
+    err.statusCode = 409;
+    throw err;
+  }
+
+  await db.delete(brands).where(eq(brands.id, id));
+  await invalidateCatalogCache();
+  return { success: true };
+}
+
+export async function deleteCategory(id: string) {
+  const db = getDb();
+  const linkedGroups = await db
+    .select({ id: compatibilityGroups.id })
+    .from(compatibilityGroups)
+    .where(eq(compatibilityGroups.categoryId, id))
+    .limit(1);
+
+  if (linkedGroups.length > 0) {
+    const err: any = new Error(
+      'Cannot delete category while compatibility groups use it. Delete those groups first.'
+    );
+    err.code = 'CATEGORY_IN_USE';
+    err.statusCode = 409;
+    throw err;
+  }
+
+  await db.delete(sparePartCategories).where(eq(sparePartCategories.id, id));
+  await invalidateCatalogCache();
+  return { success: true };
+}
+
+export async function deleteModel(id: string) {
+  const db = getDb();
+  await db.delete(compatibilityGroupMembers).where(eq(compatibilityGroupMembers.modelId, id));
+  await db.delete(mobileModels).where(eq(mobileModels.id, id));
+  await invalidateCatalogCache();
+  return { success: true };
+}
+

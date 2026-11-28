@@ -70,7 +70,7 @@ function AdminAppContent() {
       case 'brands': return 'Brands Catalog';
       case 'categories': return 'Spare Part Categories';
       case 'models': return 'Mobile Models';
-      case 'users': return 'Technician Accounts';
+      case 'users': return 'Users';
       case 'reports': return 'Issue Reports';
       case 'requests': return 'Missing Model Requests';
       case 'allowlist': return 'Admin Allowlist';
@@ -99,7 +99,7 @@ function AdminAppContent() {
   const [demoEmailInput, setDemoEmailInput] = useState('test@mobimatch.local');
 
   // Bulk & Manual Compatibility States
-  const [compatMode, setCompatMode] = useState<'parser' | 'manual'>('parser');
+  const [compatMode, setCompatMode] = useState<'parser' | 'manual' | 'groups'>('parser');
   const [categories, setCategories] = useState<any[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
   const [bulkTextInput, setBulkTextInput] = useState('');
@@ -110,6 +110,20 @@ function AdminAppContent() {
   const [manualSelectedModels, setManualSelectedModels] = useState<any[]>([]);
   const [manualSearchQuery, setManualSearchQuery] = useState('');
   const [manualBrandFilter, setManualBrandFilter] = useState<string>('all');
+  const [compatGroups, setCompatGroups] = useState<any[]>([]);
+  const [groupsSearchQuery, setGroupsSearchQuery] = useState('');
+  const [groupsCategoryFilter, setGroupsCategoryFilter] = useState<string>('all');
+  const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
+
+  // Inline Edit States for Brands, Categories, Models
+  const [editingBrandId, setEditingBrandId] = useState<string | null>(null);
+  const [editingBrandName, setEditingBrandName] = useState('');
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
+  const [editingCategoryName, setEditingCategoryName] = useState('');
+  const [editingModelId, setEditingModelId] = useState<string | null>(null);
+  const [editingModelName, setEditingModelName] = useState('');
+  const [editingModelNumber, setEditingModelNumber] = useState('');
+  const [editingModelBrandId, setEditingModelBrandId] = useState('');
 
   // On-The-Go Inline Creation States
   const [showInlineCategoryForm, setShowInlineCategoryForm] = useState(false);
@@ -120,8 +134,9 @@ function AdminAppContent() {
   const [inlineModelName, setInlineModelName] = useState('');
   const [inlineModelNumber, setInlineModelNumber] = useState('');
 
-  // Search Filter for Users Tab
+  // Search & Collapsible State for Users Tab
   const [userSearchQuery, setUserSearchQuery] = useState('');
+  const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
 
   // Catalog Data States
   const [brands, setBrands] = useState<any[]>([]);
@@ -352,6 +367,15 @@ function AdminAppContent() {
       setAdminsList(data);
     } catch (e: any) {
       console.warn(e.message);
+    }
+  };
+
+  const loadCompatGroups = async () => {
+    try {
+      const data = await adminApi.getCompatibilityGroups();
+      setCompatGroups(Array.isArray(data) ? data : []);
+    } catch (e: any) {
+      console.warn('Failed to load compatibility groups:', e.message);
     }
   };
 
@@ -727,6 +751,19 @@ function AdminAppContent() {
 
     setLoading(true);
     try {
+      if (editingGroupId) {
+        await adminApi.updateCompatibilityGroup(editingGroupId, {
+          categoryId: selectedCategoryId,
+          modelIds: manualSelectedModels.map((m) => m.id),
+        });
+        Alert.alert('Group Updated ✓', 'Compatibility group updated successfully!');
+        setEditingGroupId(null);
+        setManualSelectedModels([]);
+        await loadCompatGroups();
+        setCompatMode('groups');
+        return;
+      }
+
       const lineText = manualSelectedModels.map((m) => m.name).join(' = ');
       const prev = await adminApi.parsePreview(selectedCategoryId, lineText);
 
@@ -1055,7 +1092,7 @@ function AdminAppContent() {
 
               <Text style={styles.navSectionHeader}>MODERATION & AUDIT</Text>
               {[
-                { key: 'users', label: 'Technician Users', icon: '👥', desc: 'User accounts & profiles' },
+                { key: 'users', label: 'Users', icon: '👥', desc: 'User stats, profiles & status' },
                 { key: 'reports', label: 'Issue Reports', icon: '⚠️', desc: 'Compatibility bug reports' },
                 { key: 'requests', label: 'Missing Models', icon: '❓', desc: 'Technician model requests' },
               ].map((item) => (
@@ -1171,7 +1208,26 @@ function AdminAppContent() {
                     compatMode === 'manual' && styles.compatModeBtnTextActive,
                   ]}
                 >
-                  🔗 Manual Group Pairing
+                  🔗 Manual Pairing
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.compatModeBtn,
+                  compatMode === 'groups' && styles.compatModeBtnActive,
+                ]}
+                onPress={() => {
+                  setCompatMode('groups');
+                  loadCompatGroups();
+                }}
+              >
+                <Text
+                  style={[
+                    styles.compatModeBtnText,
+                    compatMode === 'groups' && styles.compatModeBtnTextActive,
+                  ]}
+                >
+                  📋 Saved Groups
                 </Text>
               </TouchableOpacity>
             </View>
@@ -1515,6 +1571,28 @@ function AdminAppContent() {
             {/* Mode B: Manual Group Pairing */}
             {compatMode === 'manual' && (
               <View>
+                {editingGroupId && (
+                  <View style={styles.editingBanner}>
+                    <View style={{ flex: 1, marginRight: 8 }}>
+                      <Text style={{ fontWeight: '800', color: colors.primary, fontSize: 13 }}>
+                        ✏️ Editing Compatibility Group
+                      </Text>
+                      <Text style={{ fontSize: 11, color: colors.textSecondary }}>
+                        Add or remove models below and tap Save Group Changes.
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      style={[styles.smallBtn, { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.borderDark }]}
+                      onPress={() => {
+                        setEditingGroupId(null);
+                        setManualSelectedModels([]);
+                        setCompatMode('groups');
+                      }}
+                    >
+                      <Text style={{ fontSize: 12, fontWeight: '700', color: colors.textSecondary }}>Cancel</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
                 <Text style={[typography.h3, { marginBottom: 4 }]}>
                   🔗 Manual Group & Individual Pairing
                 </Text>
@@ -1643,7 +1721,9 @@ function AdminAppContent() {
                       <ActivityIndicator color="#fff" />
                     ) : (
                       <Text style={[typography.button, { color: '#fff' }]}>
-                        ⚡ Publish Compatibility Group ({manualSelectedModels.length} models)
+                        {editingGroupId
+                          ? `💾 Save Group Changes (${manualSelectedModels.length} models)`
+                          : `⚡ Publish Compatibility Group (${manualSelectedModels.length} models)`}
                       </Text>
                     )}
                   </TouchableOpacity>
@@ -1839,6 +1919,138 @@ function AdminAppContent() {
                   })}
               </View>
             )}
+
+            {/* Mode C: Saved Compatibility Groups (View / Edit / Delete) */}
+            {compatMode === 'groups' && (
+              <View>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <Text style={[typography.h3]}>Saved Compatibility Groups ({compatGroups.length})</Text>
+                  <TouchableOpacity
+                    style={[styles.smallBtn, { backgroundColor: colors.primaryLight }]}
+                    onPress={loadCompatGroups}
+                  >
+                    <Text style={{ color: colors.primary, fontSize: 12, fontWeight: '700' }}>🔄 Refresh</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <TextInput
+                  style={[styles.input, { marginBottom: 10 }]}
+                  placeholder="Search groups by model, brand, or category..."
+                  value={groupsSearchQuery}
+                  onChangeText={setGroupsSearchQuery}
+                />
+
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
+                  <TouchableOpacity
+                    style={[styles.chip, groupsCategoryFilter === 'all' && styles.chipActive]}
+                    onPress={() => setGroupsCategoryFilter('all')}
+                  >
+                    <Text style={[styles.chipText, groupsCategoryFilter === 'all' && styles.chipTextActive]}>
+                      All Categories
+                    </Text>
+                  </TouchableOpacity>
+                  {categories.map((c) => (
+                    <TouchableOpacity
+                      key={c.id}
+                      style={[styles.chip, groupsCategoryFilter === c.id && styles.chipActive]}
+                      onPress={() => setGroupsCategoryFilter(c.id)}
+                    >
+                      <Text style={[styles.chipText, groupsCategoryFilter === c.id && styles.chipTextActive]}>
+                        {c.name}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+
+                {compatGroups
+                  .filter((g) => {
+                    if (groupsCategoryFilter !== 'all' && g.categoryId !== groupsCategoryFilter) return false;
+                    if (!groupsSearchQuery.trim()) return true;
+                    const q = groupsSearchQuery.toLowerCase();
+                    if (g.categoryName?.toLowerCase().includes(q)) return true;
+                    return (g.members || []).some(
+                      (m: any) =>
+                        m.modelName?.toLowerCase().includes(q) ||
+                        m.brandName?.toLowerCase().includes(q) ||
+                        m.modelNumber?.toLowerCase().includes(q)
+                    );
+                  })
+                  .map((g) => (
+                    <View key={g.id} style={styles.card}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
+                          <View style={[styles.chip, styles.chipActive, { marginRight: 0, paddingVertical: 4 }]}>
+                            <Text style={[styles.chipTextActive, { fontSize: 11 }]}>{g.categoryName}</Text>
+                          </View>
+                          <Text style={typography.caption}>
+                            {(g.members || []).length} models
+                          </Text>
+                        </View>
+                        <View style={{ flexDirection: 'row', gap: 6 }}>
+                          <TouchableOpacity
+                            style={[styles.iconActionBtn, { backgroundColor: colors.primaryLighter }]}
+                            onPress={() => {
+                              setEditingGroupId(g.id);
+                              setSelectedCategoryId(g.categoryId);
+                              setManualSelectedModels(
+                                (g.members || []).map((m: any) => ({
+                                  id: m.modelId,
+                                  name: m.modelName,
+                                  brandName: m.brandName,
+                                  modelNumber: m.modelNumber,
+                                }))
+                              );
+                              setCompatMode('manual');
+                            }}
+                          >
+                            <Text style={{ fontSize: 12, fontWeight: '700', color: colors.primary }}>✏️ Edit</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[styles.iconActionBtn, { backgroundColor: colors.errorBg }]}
+                            onPress={() => {
+                              Alert.alert(
+                                'Delete Compatibility Group',
+                                `Delete this ${g.categoryName} group with ${(g.members || []).length} models?`,
+                                [
+                                  { text: 'Cancel', style: 'cancel' },
+                                  {
+                                    text: 'Delete',
+                                    style: 'destructive',
+                                    onPress: async () => {
+                                      try {
+                                        await adminApi.deleteCompatibilityGroup(g.id);
+                                        loadCompatGroups();
+                                      } catch (e: any) {
+                                        Alert.alert('Error', e.message || 'Cannot delete group');
+                                      }
+                                    },
+                                  },
+                                ]
+                              );
+                            }}
+                          >
+                            <Text style={{ fontSize: 12, fontWeight: '700', color: colors.error }}>🗑️ Delete</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                      <Text style={{ fontSize: 13, color: colors.textPrimary, lineHeight: 19 }}>
+                        {(g.members || [])
+                          .map((m: any) => `${m.brandName} ${m.name}`)
+                          .join('  •  ')}
+                      </Text>
+                    </View>
+                  ))}
+
+                {compatGroups.length === 0 && (
+                  <View style={[styles.card, { alignItems: 'center', paddingVertical: 24 }]}>
+                    <Text style={{ fontWeight: '700', color: colors.textPrimary }}>No Compatibility Groups Yet</Text>
+                    <Text style={[typography.caption, { marginTop: 4 }]}>
+                      Create groups using Bulk Text Parser or Manual Pairing.
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
           </View>
         )}
 
@@ -1947,51 +2159,123 @@ function AdminAppContent() {
               <Text style={[typography.h3, { marginTop: 12, marginBottom: 12 }]}>All Brands</Text>
               {brands.map((b) => {
                 const isDup = brandNormCounts[b.name.trim().toLowerCase()] > 1;
+                const isEditing = editingBrandId === b.id;
                 return (
-                  <View key={b.id} style={styles.listItem}>
-                    <View style={{ flex: 1, marginRight: 8 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <Text style={{ fontWeight: '700', color: colors.textPrimary }}>
-                          {b.name}
-                        </Text>
-                        {isDup && (
-                          <View style={styles.duplicateBadge}>
-                            <Text style={styles.duplicateBadgeText}>⚠️ Duplicate</Text>
-                          </View>
-                        )}
+                  <View key={b.id} style={styles.card}>
+                    {isEditing ? (
+                      <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                        <TextInput
+                          style={[styles.input, { flex: 1 }]}
+                          value={editingBrandName}
+                          onChangeText={setEditingBrandName}
+                          placeholder="Brand name"
+                        />
+                        <TouchableOpacity
+                          style={[styles.smallBtn, { backgroundColor: colors.primary }]}
+                          onPress={async () => {
+                            if (!editingBrandName.trim()) return;
+                            try {
+                              await adminApi.updateBrand(b.id, editingBrandName.trim());
+                              setEditingBrandId(null);
+                              loadBrands();
+                            } catch (e: any) {
+                              Alert.alert('Error', e.message || 'Cannot update brand');
+                            }
+                          }}
+                        >
+                          <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>Save</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.smallBtn, { backgroundColor: colors.surfaceSubtle }]}
+                          onPress={() => setEditingBrandId(null)}
+                        >
+                          <Text style={{ color: colors.textSecondary, fontSize: 12, fontWeight: '600' }}>Cancel</Text>
+                        </TouchableOpacity>
                       </View>
-                      <Text style={typography.caption}>
-                        Status: {b.isActive ? 'Active' : 'Deactivated'}
-                      </Text>
-                    </View>
-                    <TouchableOpacity
-                      style={[
-                        styles.smallBtn,
-                        { backgroundColor: b.isActive ? colors.errorBg : colors.successBg },
-                      ]}
-                      onPress={async () => {
-                        try {
-                          if (b.isActive) {
-                            await adminApi.deactivateBrand(b.id);
-                          } else {
-                            await adminApi.reactivateBrand(b.id);
-                          }
-                          loadBrands();
-                        } catch (e: any) {
-                          Alert.alert('Error', e.message || 'Cannot update brand');
-                        }
-                      }}
-                    >
-                      <Text
-                        style={{
-                          color: b.isActive ? colors.error : colors.success,
-                          fontSize: 12,
-                          fontWeight: '600',
-                        }}
-                      >
-                        {b.isActive ? 'Deactivate' : 'Reactivate'}
-                      </Text>
-                    </TouchableOpacity>
+                    ) : (
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <View style={{ flex: 1, marginRight: 8 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <Text style={{ fontWeight: '700', color: colors.textPrimary }}>
+                              {b.name}
+                            </Text>
+                            {isDup && (
+                              <View style={styles.duplicateBadge}>
+                                <Text style={styles.duplicateBadgeText}>⚠️ Duplicate</Text>
+                              </View>
+                            )}
+                          </View>
+                          <Text style={typography.caption}>
+                            Status: {b.isActive ? 'Active' : 'Deactivated'}
+                          </Text>
+                        </View>
+                        <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+                          <TouchableOpacity
+                            style={[styles.iconActionBtn, { backgroundColor: colors.primaryLighter }]}
+                            onPress={() => {
+                              setEditingBrandId(b.id);
+                              setEditingBrandName(b.name);
+                            }}
+                          >
+                            <Text style={{ fontSize: 12, fontWeight: '700', color: colors.primary }}>✏️</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[styles.iconActionBtn, { backgroundColor: colors.errorBg }]}
+                            onPress={() => {
+                              Alert.alert(
+                                'Delete Brand',
+                                `Permanently delete "${b.name}"?`,
+                                [
+                                  { text: 'Cancel', style: 'cancel' },
+                                  {
+                                    text: 'Delete',
+                                    style: 'destructive',
+                                    onPress: async () => {
+                                      try {
+                                        await adminApi.deleteBrand(b.id);
+                                        loadBrands();
+                                      } catch (e: any) {
+                                        Alert.alert('Cannot Delete', e.message || 'Brand is in use');
+                                      }
+                                    },
+                                  },
+                                ]
+                              );
+                            }}
+                          >
+                            <Text style={{ fontSize: 12, fontWeight: '700', color: colors.error }}>🗑️</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[
+                              styles.smallBtn,
+                              { backgroundColor: b.isActive ? colors.errorBg : colors.successBg },
+                            ]}
+                            onPress={async () => {
+                              try {
+                                if (b.isActive) {
+                                  await adminApi.deactivateBrand(b.id);
+                                } else {
+                                  await adminApi.reactivateBrand(b.id);
+                                }
+                                loadBrands();
+                              } catch (e: any) {
+                                Alert.alert('Error', e.message || 'Cannot update brand');
+                              }
+                            }}
+                          >
+                            <Text
+                              style={{
+                                color: b.isActive ? colors.error : colors.success,
+                                fontSize: 12,
+                                fontWeight: '600',
+                              }}
+                            >
+                              {b.isActive ? 'Deactivate' : 'Reactivate'}
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    )}
                   </View>
                 );
               })}
@@ -2105,51 +2389,123 @@ function AdminAppContent() {
               <Text style={[typography.h3, { marginTop: 12, marginBottom: 12 }]}>All Categories</Text>
               {categories.map((c) => {
                 const isDup = catNormCounts[c.name.trim().toLowerCase()] > 1;
+                const isEditing = editingCategoryId === c.id;
                 return (
-                  <View key={c.id} style={styles.listItem}>
-                    <View style={{ flex: 1, marginRight: 8 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <Text style={{ fontWeight: '700', color: colors.textPrimary }}>
-                          {c.name}
-                        </Text>
-                        {isDup && (
-                          <View style={styles.duplicateBadge}>
-                            <Text style={styles.duplicateBadgeText}>⚠️ Duplicate</Text>
-                          </View>
-                        )}
+                  <View key={c.id} style={styles.card}>
+                    {isEditing ? (
+                      <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                        <TextInput
+                          style={[styles.input, { flex: 1 }]}
+                          value={editingCategoryName}
+                          onChangeText={setEditingCategoryName}
+                          placeholder="Category name"
+                        />
+                        <TouchableOpacity
+                          style={[styles.smallBtn, { backgroundColor: colors.primary }]}
+                          onPress={async () => {
+                            if (!editingCategoryName.trim()) return;
+                            try {
+                              await adminApi.updateCategory(c.id, editingCategoryName.trim());
+                              setEditingCategoryId(null);
+                              loadCategories();
+                            } catch (e: any) {
+                              Alert.alert('Error', e.message || 'Cannot update category');
+                            }
+                          }}
+                        >
+                          <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>Save</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.smallBtn, { backgroundColor: colors.surfaceSubtle }]}
+                          onPress={() => setEditingCategoryId(null)}
+                        >
+                          <Text style={{ color: colors.textSecondary, fontSize: 12, fontWeight: '600' }}>Cancel</Text>
+                        </TouchableOpacity>
                       </View>
-                      <Text style={typography.caption}>
-                        Status: {c.isActive ? 'Active' : 'Deactivated'}
-                      </Text>
-                    </View>
-                    <TouchableOpacity
-                      style={[
-                        styles.smallBtn,
-                        { backgroundColor: c.isActive ? colors.errorBg : colors.successBg },
-                      ]}
-                      onPress={async () => {
-                        try {
-                          if (c.isActive) {
-                            await adminApi.deactivateCategory(c.id);
-                          } else {
-                            await adminApi.reactivateCategory(c.id);
-                          }
-                          loadCategories();
-                        } catch (e: any) {
-                          Alert.alert('Error', e.message || 'Cannot update category');
-                        }
-                      }}
-                    >
-                      <Text
-                        style={{
-                          color: c.isActive ? colors.error : colors.success,
-                          fontSize: 12,
-                          fontWeight: '600',
-                        }}
-                      >
-                        {c.isActive ? 'Deactivate' : 'Reactivate'}
-                      </Text>
-                    </TouchableOpacity>
+                    ) : (
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <View style={{ flex: 1, marginRight: 8 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <Text style={{ fontWeight: '700', color: colors.textPrimary }}>
+                              {c.name}
+                            </Text>
+                            {isDup && (
+                              <View style={styles.duplicateBadge}>
+                                <Text style={styles.duplicateBadgeText}>⚠️ Duplicate</Text>
+                              </View>
+                            )}
+                          </View>
+                          <Text style={typography.caption}>
+                            Status: {c.isActive ? 'Active' : 'Deactivated'}
+                          </Text>
+                        </View>
+                        <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+                          <TouchableOpacity
+                            style={[styles.iconActionBtn, { backgroundColor: colors.primaryLighter }]}
+                            onPress={() => {
+                              setEditingCategoryId(c.id);
+                              setEditingCategoryName(c.name);
+                            }}
+                          >
+                            <Text style={{ fontSize: 12, fontWeight: '700', color: colors.primary }}>✏️</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[styles.iconActionBtn, { backgroundColor: colors.errorBg }]}
+                            onPress={() => {
+                              Alert.alert(
+                                'Delete Category',
+                                `Permanently delete "${c.name}"?`,
+                                [
+                                  { text: 'Cancel', style: 'cancel' },
+                                  {
+                                    text: 'Delete',
+                                    style: 'destructive',
+                                    onPress: async () => {
+                                      try {
+                                        await adminApi.deleteCategory(c.id);
+                                        loadCategories();
+                                      } catch (e: any) {
+                                        Alert.alert('Cannot Delete', e.message || 'Category is in use');
+                                      }
+                                    },
+                                  },
+                                ]
+                              );
+                            }}
+                          >
+                            <Text style={{ fontSize: 12, fontWeight: '700', color: colors.error }}>🗑️</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[
+                              styles.smallBtn,
+                              { backgroundColor: c.isActive ? colors.errorBg : colors.successBg },
+                            ]}
+                            onPress={async () => {
+                              try {
+                                if (c.isActive) {
+                                  await adminApi.deactivateCategory(c.id);
+                                } else {
+                                  await adminApi.reactivateCategory(c.id);
+                                }
+                                loadCategories();
+                              } catch (e: any) {
+                                Alert.alert('Error', e.message || 'Cannot update category');
+                              }
+                            }}
+                          >
+                            <Text
+                              style={{
+                                color: c.isActive ? colors.error : colors.success,
+                                fontSize: 12,
+                                fontWeight: '600',
+                              }}
+                            >
+                              {c.isActive ? 'Deactivate' : 'Reactivate'}
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    )}
                   </View>
                 );
               })}
@@ -2246,164 +2602,335 @@ function AdminAppContent() {
               </View>
 
               <Text style={[typography.h3, { marginTop: 16, marginBottom: 12 }]}>All Models</Text>
-              {models.map((m) => (
-                <View key={m.id} style={styles.listItem}>
-                  <View style={{ flex: 1, marginRight: 8 }}>
-                    <Text style={{ fontWeight: '600', color: colors.textPrimary }}>
-                      {m.brandName} {m.name}
-                    </Text>
-                    <Text style={typography.caption}>
-                      {m.modelNumber ? `Model No: ${m.modelNumber} | ` : ''}
-                      {m.isActive ? 'Active' : 'Deactivated'}
-                    </Text>
+              {models.map((m) => {
+                const isEditing = editingModelId === m.id;
+                return (
+                  <View key={m.id} style={styles.card}>
+                    {isEditing ? (
+                      <View>
+                        <Text style={styles.label}>Edit Model</Text>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
+                          {brands.map((b) => (
+                            <TouchableOpacity
+                              key={b.id}
+                              style={[styles.chip, editingModelBrandId === b.id && styles.chipActive]}
+                              onPress={() => setEditingModelBrandId(b.id)}
+                            >
+                              <Text style={[styles.chipText, editingModelBrandId === b.id && styles.chipTextActive]}>
+                                {b.name}
+                              </Text>
+                            </TouchableOpacity>
+                          ))}
+                        </ScrollView>
+                        <TextInput
+                          style={[styles.input, { marginBottom: 8 }]}
+                          value={editingModelName}
+                          onChangeText={setEditingModelName}
+                          placeholder="Model Name"
+                        />
+                        <TextInput
+                          style={[styles.input, { marginBottom: 10 }]}
+                          value={editingModelNumber}
+                          onChangeText={setEditingModelNumber}
+                          placeholder="Optional Model Number"
+                        />
+                        <View style={{ flexDirection: 'row', gap: 8 }}>
+                          <TouchableOpacity
+                            style={[styles.smallBtn, { backgroundColor: colors.primary, flex: 1 }]}
+                            onPress={async () => {
+                              if (!editingModelName.trim()) return;
+                              try {
+                                await adminApi.updateModel(m.id, {
+                                  brandId: editingModelBrandId || m.brandId,
+                                  name: editingModelName.trim(),
+                                  modelNumber: editingModelNumber.trim() || null,
+                                });
+                                setEditingModelId(null);
+                                loadModels();
+                              } catch (e: any) {
+                                Alert.alert('Error', e.message || 'Cannot update model');
+                              }
+                            }}
+                          >
+                            <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700', textAlign: 'center' }}>Save</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[styles.smallBtn, { backgroundColor: colors.surfaceSubtle, flex: 1 }]}
+                            onPress={() => setEditingModelId(null)}
+                          >
+                            <Text style={{ color: colors.textSecondary, fontSize: 12, fontWeight: '600', textAlign: 'center' }}>Cancel</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    ) : (
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <View style={{ flex: 1, marginRight: 8 }}>
+                          <Text style={{ fontWeight: '600', color: colors.textPrimary }}>
+                            {m.brandName} {m.name}
+                          </Text>
+                          <Text style={typography.caption}>
+                            {m.modelNumber ? `Model No: ${m.modelNumber} | ` : ''}
+                            {m.isActive ? 'Active' : 'Deactivated'}
+                          </Text>
+                        </View>
+                        <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+                          <TouchableOpacity
+                            style={[styles.iconActionBtn, { backgroundColor: colors.primaryLighter }]}
+                            onPress={() => {
+                              setEditingModelId(m.id);
+                              setEditingModelBrandId(m.brandId);
+                              setEditingModelName(m.name);
+                              setEditingModelNumber(m.modelNumber || '');
+                            }}
+                          >
+                            <Text style={{ fontSize: 12, fontWeight: '700', color: colors.primary }}>✏️</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[styles.iconActionBtn, { backgroundColor: colors.errorBg }]}
+                            onPress={() => {
+                              Alert.alert(
+                                'Delete Model',
+                                `Permanently delete "${m.brandName} ${m.name}" and remove it from compatibility groups?`,
+                                [
+                                  { text: 'Cancel', style: 'cancel' },
+                                  {
+                                    text: 'Delete',
+                                    style: 'destructive',
+                                    onPress: async () => {
+                                      try {
+                                        await adminApi.deleteModel(m.id);
+                                        loadModels();
+                                      } catch (e: any) {
+                                        Alert.alert('Error', e.message || 'Cannot delete model');
+                                      }
+                                    },
+                                  },
+                                ]
+                              );
+                            }}
+                          >
+                            <Text style={{ fontSize: 12, fontWeight: '700', color: colors.error }}>🗑️</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[
+                              styles.smallBtn,
+                              { backgroundColor: m.isActive ? colors.errorBg : colors.successBg },
+                            ]}
+                            onPress={async () => {
+                              try {
+                                if (m.isActive) {
+                                  await adminApi.deactivateModel(m.id);
+                                } else {
+                                  await adminApi.reactivateModel(m.id);
+                                }
+                                loadModels();
+                              } catch (e: any) {
+                                Alert.alert('Error', e.message || 'Cannot update model');
+                              }
+                            }}
+                          >
+                            <Text
+                              style={{
+                                color: m.isActive ? colors.error : colors.success,
+                                fontSize: 12,
+                                fontWeight: '600',
+                              }}
+                            >
+                              {m.isActive ? 'Deactivate' : 'Reactivate'}
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    )}
                   </View>
-                  <TouchableOpacity
-                    style={[
-                      styles.smallBtn,
-                      { backgroundColor: m.isActive ? colors.errorBg : colors.successBg },
-                    ]}
-                    onPress={async () => {
-                      try {
-                        if (m.isActive) {
-                          await adminApi.deactivateModel(m.id);
-                        } else {
-                          await adminApi.reactivateModel(m.id);
-                        }
-                        loadModels();
-                      } catch (e: any) {
-                        Alert.alert('Error', e.message || 'Cannot update model');
-                      }
-                    }}
-                  >
-                    <Text
-                      style={{
-                        color: m.isActive ? colors.error : colors.success,
-                        fontSize: 12,
-                        fontWeight: '600',
-                      }}
-                    >
-                      {m.isActive ? 'Deactivate' : 'Reactivate'}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              ))}
+                );
+              })}
             </View>
           );
         })()}
 
         {/* 5. Users Tab */}
-        {activeTab === 'users' && (
-          <View>
-            <Text style={[typography.h3, { marginBottom: 4 }]}>
-              Technician Accounts ({usersList.length})
-            </Text>
-            <Text style={[typography.bodySecondary, { marginBottom: 12 }]}>
-              Manage registered mobile technicians, verify shop details, and audit accounts.
-            </Text>
+        {activeTab === 'users' && (() => {
+          const totalUsers = usersList.length;
+          const activeUsersCount = usersList.filter((u) => u.status === 'active').length;
+          const inactiveUsersCount = totalUsers - activeUsersCount;
+          const filteredUsers = usersList.filter((u) => {
+            if (!userSearchQuery.trim()) return true;
+            const q = userSearchQuery.toLowerCase();
+            return (
+              u.name?.toLowerCase().includes(q) ||
+              u.email?.toLowerCase().includes(q) ||
+              u.shopName?.toLowerCase().includes(q) ||
+              u.city?.toLowerCase().includes(q) ||
+              u.phone?.toLowerCase().includes(q)
+            );
+          });
 
-            {/* Search Filter */}
-            <TextInput
-              style={[styles.input, { marginBottom: 12 }]}
-              placeholder="Search technician by name, email, shop, or city..."
-              value={userSearchQuery}
-              onChangeText={setUserSearchQuery}
-            />
+          return (
+            <View>
+              <Text style={[typography.h3, { marginBottom: 4 }]}>
+                Users ({totalUsers})
+              </Text>
+              <Text style={[typography.bodySecondary, { marginBottom: 12 }]}>
+                Tap any user card to expand phone, shop name, and location details.
+              </Text>
 
-            {usersList
-              .filter((u) => {
-                if (!userSearchQuery.trim()) return true;
-                const q = userSearchQuery.toLowerCase();
-                return (
-                  u.name?.toLowerCase().includes(q) ||
-                  u.email?.toLowerCase().includes(q) ||
-                  u.shopName?.toLowerCase().includes(q) ||
-                  u.city?.toLowerCase().includes(q) ||
-                  u.phone?.toLowerCase().includes(q)
-                );
-              })
-              .map((u) => {
+              {/* Stats Strip */}
+              <View style={styles.statsRow}>
+                <View style={styles.statCard}>
+                  <Text style={styles.statNumber}>{totalUsers}</Text>
+                  <Text style={styles.statLabel}>Total Users</Text>
+                </View>
+                <View style={[styles.statCard, { borderColor: colors.successBorder }]}>
+                  <Text style={[styles.statNumber, { color: colors.success }]}>{activeUsersCount}</Text>
+                  <Text style={styles.statLabel}>Active</Text>
+                </View>
+                <View style={[styles.statCard, { borderColor: colors.borderDark }]}>
+                  <Text style={[styles.statNumber, { color: colors.textSecondary }]}>{inactiveUsersCount}</Text>
+                  <Text style={styles.statLabel}>Inactive</Text>
+                </View>
+              </View>
+
+              {/* Search Filter */}
+              <TextInput
+                style={[styles.input, { marginBottom: 12 }]}
+                placeholder="Search users by name, email, phone, shop, or city..."
+                value={userSearchQuery}
+                onChangeText={setUserSearchQuery}
+              />
+
+              {filteredUsers.map((u) => {
                 const isDeleted = u.status === 'deleted';
+                const isExpanded = expandedUserId === u.id;
                 return (
-                  <View key={u.id} style={styles.listItem}>
-                    <View style={{ flex: 1, marginRight: 10 }}>
-                      <Text
-                        style={{
-                          fontWeight: '700',
-                          color: isDeleted ? colors.textMuted : colors.textPrimary,
-                        }}
-                        numberOfLines={1}
-                      >
-                        {u.name || (isDeleted ? 'Deleted User' : 'Unnamed Technician')}
-                      </Text>
-                      <Text
-                        style={{
-                          fontSize: 12,
-                          color: isDeleted ? colors.textMuted : colors.textSecondary,
-                        }}
-                        numberOfLines={1}
-                      >
-                        {u.email}
-                      </Text>
-                      <Text style={[typography.caption, { marginTop: 2 }]} numberOfLines={1}>
-                        Shop: {u.shopName || 'N/A'} • City: {u.city || 'N/A'} • Status:{' '}
+                  <View key={u.id} style={styles.card}>
+                    <TouchableOpacity
+                      activeOpacity={0.75}
+                      onPress={() => setExpandedUserId(isExpanded ? null : u.id)}
+                      style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
+                    >
+                      <View style={{ flex: 1, marginRight: 10 }}>
                         <Text
                           style={{
                             fontWeight: '700',
-                            color:
-                              u.status === 'active'
-                                ? colors.success
-                                : isDeleted
-                                ? colors.textMuted
-                                : colors.error,
+                            color: isDeleted ? colors.textMuted : colors.textPrimary,
                           }}
+                          numberOfLines={1}
                         >
-                          {u.status}
+                          {u.name || (isDeleted ? 'Deleted User' : 'Unnamed User')}
                         </Text>
-                      </Text>
-                    </View>
-
-                    {isDeleted ? (
-                      <View style={styles.deletedBadge}>
-                        <Text style={styles.deletedBadgeText}>🗑️ Deleted User</Text>
-                      </View>
-                    ) : (
-                      <TouchableOpacity
-                        style={[
-                          styles.smallBtn,
-                          {
-                            backgroundColor:
-                              u.status === 'active' ? colors.errorBg : colors.successBg,
-                          },
-                        ]}
-                        onPress={async () => {
-                          try {
-                            if (u.status === 'active') {
-                              await adminApi.deactivateUser(u.id);
-                            } else {
-                              await adminApi.reactivateUser(u.id);
-                            }
-                            loadUsers();
-                          } catch (e: any) {
-                            Alert.alert('Error', e.message || 'Cannot update user status');
-                          }
-                        }}
-                      >
                         <Text
                           style={{
-                            color: u.status === 'active' ? colors.error : colors.success,
                             fontSize: 12,
-                            fontWeight: '600',
+                            color: isDeleted ? colors.textMuted : colors.textSecondary,
                           }}
+                          numberOfLines={1}
                         >
-                          {u.status === 'active' ? 'Deactivate' : 'Reactivate'}
+                          {u.email}
                         </Text>
-                      </TouchableOpacity>
+                      </View>
+
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <View
+                          style={[
+                            styles.adStatusToggleBtn,
+                            {
+                              backgroundColor:
+                                u.status === 'active'
+                                  ? colors.successBg
+                                  : isDeleted
+                                  ? colors.surfaceSubtle
+                                  : colors.errorBg,
+                              borderColor: 'transparent',
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={{
+                              fontSize: 11,
+                              fontWeight: '700',
+                              color:
+                                u.status === 'active'
+                                  ? colors.successText
+                                  : isDeleted
+                                  ? colors.textMuted
+                                  : colors.errorText,
+                            }}
+                          >
+                            {u.status}
+                          </Text>
+                        </View>
+                        <Text style={{ fontSize: 14, color: colors.textMuted }}>
+                          {isExpanded ? '▾' : '▸'}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+
+                    {/* Collapsible Bottom Section */}
+                    {isExpanded && (
+                      <View style={styles.userDetailPanel}>
+                        <View style={styles.userDetailRow}>
+                          <Text style={styles.userDetailLabel}>📞 Phone</Text>
+                          <Text style={styles.userDetailValue}>{u.phone || 'Not provided'}</Text>
+                        </View>
+                        <View style={styles.userDetailRow}>
+                          <Text style={styles.userDetailLabel}>🏪 Shop Name</Text>
+                          <Text style={styles.userDetailValue}>{u.shopName || 'Not provided'}</Text>
+                        </View>
+                        <View style={styles.userDetailRow}>
+                          <Text style={styles.userDetailLabel}>📍 Location</Text>
+                          <Text style={styles.userDetailValue}>{u.city || 'Not provided'}</Text>
+                        </View>
+                        <View style={styles.userDetailRow}>
+                          <Text style={styles.userDetailLabel}>📅 Joined</Text>
+                          <Text style={styles.userDetailValue}>
+                            {u.createdAt ? new Date(u.createdAt).toLocaleDateString() : 'N/A'}
+                          </Text>
+                        </View>
+
+                        {!isDeleted && (
+                          <TouchableOpacity
+                            style={[
+                              styles.smallBtn,
+                              {
+                                backgroundColor:
+                                  u.status === 'active' ? colors.errorBg : colors.successBg,
+                                marginTop: 10,
+                                alignSelf: 'flex-end',
+                              },
+                            ]}
+                            onPress={async () => {
+                              try {
+                                if (u.status === 'active') {
+                                  await adminApi.deactivateUser(u.id);
+                                } else {
+                                  await adminApi.reactivateUser(u.id);
+                                }
+                                loadUsers();
+                              } catch (e: any) {
+                                Alert.alert('Error', e.message || 'Cannot update user status');
+                              }
+                            }}
+                          >
+                            <Text
+                              style={{
+                                color: u.status === 'active' ? colors.error : colors.success,
+                                fontSize: 12,
+                                fontWeight: '700',
+                              }}
+                            >
+                              {u.status === 'active' ? 'Deactivate User' : 'Reactivate User'}
+                            </Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
                     )}
                   </View>
                 );
               })}
-          </View>
-        )}
+            </View>
+          );
+        })()}
 
         {/* 6. Reports Tab */}
         {activeTab === 'reports' && (
@@ -4103,6 +4630,70 @@ const styles = StyleSheet.create({
   adActionText: {
     color: colors.textInverse,
     fontSize: 10,
+    fontWeight: '700',
+  },
+  editingBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.primaryLighter,
+    borderWidth: 1.5,
+    borderColor: colors.primaryBorder,
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 12,
+  },
+  iconActionBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 9,
+    borderRadius: 6,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+  },
+  statNumber: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: colors.primary,
+  },
+  statLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  userDetailPanel: {
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderLight,
+  },
+  userDetailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  userDetailLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontWeight: '600',
+  },
+  userDetailValue: {
+    fontSize: 12,
+    color: colors.textPrimary,
     fontWeight: '700',
   },
 });

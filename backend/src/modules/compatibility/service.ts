@@ -531,3 +531,127 @@ export async function publishCompatibilityTransaction(
   }
 }
 
+export async function getAllCompatibilityGroupsAdmin(categoryId?: string) {
+  const pool = getPool();
+  const params: any[] = [];
+  let whereClause = '';
+  if (categoryId) {
+    params.push(categoryId);
+    whereClause = 'WHERE cg.category_id = $1';
+  }
+
+  const res = await pool.query(
+    `SELECT
+       cg.id,
+       cg.category_id AS "categoryId",
+       sc.name AS "categoryName",
+       cg.is_active AS "isActive",
+       cg.created_at AS "createdAt",
+       cg.updated_at AS "updatedAt",
+       COALESCE(
+         json_agg(
+           json_build_object(
+             'modelId', mm.id,
+             'modelName', mm.name,
+             'modelNumber', mm.model_number,
+             'brandId', b.id,
+             'brandName', b.name
+           ) ORDER BY b.name ASC, mm.name ASC
+         ) FILTER (WHERE mm.id IS NOT NULL),
+         '[]'::json
+       ) AS members
+     FROM compatibility_groups cg
+     JOIN spare_part_categories sc ON sc.id = cg.category_id
+     LEFT JOIN compatibility_group_members cgm ON cgm.group_id = cg.id
+     LEFT JOIN mobile_models mm ON mm.id = cgm.model_id
+     LEFT JOIN brands b ON b.id = mm.brand_id
+     ${whereClause}
+     GROUP BY cg.id, sc.name
+     ORDER BY cg.updated_at DESC`,
+    params
+  );
+
+  return res.rows;
+}
+
+export async function updateCompatibilityGroup(
+  groupId: string,
+  payload: { categoryId?: string; modelIds: string[]; isActive?: boolean },
+  adminUserId: string
+) {
+  const uniqueModelIds = Array.from(new Set(payload.modelIds));
+  if (uniqueModelIds.length < 2) {
+    const err: any = new Error('A compatibility group must contain at least 2 models.');
+    err.code = 'MIN_TWO_MODELS_REQUIRED';
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const pool = getPool();
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    const existingGroupRes = await client.query(
+      'SELECT id, category_id, is_active FROM compatibility_groups WHERE id = $1 LIMIT 1',
+      [groupId]
+    );
+    if (existingGroupRes.rowCount === 0) {
+      const err: any = new Error('Compatibility group not found.');
+      err.code = 'GROUP_NOT_FOUND';
+      err.statusCode = 404;
+      throw err;
+    }
+
+    const targetCategoryId = payload.categoryId || existingGroupRes.rows[0].category_id;
+    const targetIsActive =
+      payload.isActive !== undefined ? payload.isActive : existingGroupRes.rows[0].is_active;
+
+    await client.query(
+      `UPDATE compatibility_groups
+       SET category_id = $1, is_active = $2, updated_by_admin_id = $3, updated_at = NOW()
+       WHERE id = $4`,
+      [targetCategoryId, targetIsActive, adminUserId, groupId]
+    );
+
+    // Replace members cleanly, removing any old membership in the same category for these models
+    await client.query('DELETE FROM compatibility_group_members WHERE group_id = $1', [groupId]);
+
+    for (const modelId of uniqueModelIds) {
+      await client.query(
+        `DELETE FROM compatibility_group_members cgm
+         USING compatibility_groups cg
+         WHERE cgm.group_id = cg.id
+           AND cg.category_id = $1
+           AND cgm.model_id = $2
+           AND cg.id <> $3`,
+        [targetCategoryId, modelId, groupId]
+      );
+
+      await client.query(
+        `INSERT INTO compatibility_group_members (group_id, model_id)
+         VALUES ($1, $2)
+         ON CONFLICT DO NOTHING`,
+        [groupId, modelId]
+      );
+    }
+
+    await client.query('COMMIT');
+    await invalidateCatalogCache();
+    return { success: true, id: groupId };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function deleteCompatibilityGroup(groupId: string) {
+  const db = getDb();
+  await db.delete(compatibilityGroups).where(eq(compatibilityGroups.id, groupId));
+  await invalidateCatalogCache();
+  return { success: true };
+}
+

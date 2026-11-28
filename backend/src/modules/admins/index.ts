@@ -22,12 +22,18 @@ import {
   createModel,
   updateModel,
   setModelActiveStatus,
+  deleteBrand,
+  deleteCategory,
+  deleteModel,
   autoDeduplicateBrands,
   autoDeduplicateCategories,
 } from '../catalog/service';
 import {
   generateParsePreview,
   publishCompatibilityTransaction,
+  getAllCompatibilityGroupsAdmin,
+  updateCompatibilityGroup,
+  deleteCompatibilityGroup,
 } from '../compatibility/service';
 import {
   PublishCompatibilityRequestSchema,
@@ -150,6 +156,20 @@ export const adminRoutes: FastifyPluginAsync = async (server: FastifyInstance) =
     return reply.status(200).send(result);
   });
 
+  server.delete<{ Params: { id: string } }>('/v1/admin/brands/:id', async (req, reply) => {
+    try {
+      const result = await deleteBrand(req.params.id);
+      return reply.status(200).send(result);
+    } catch (err: any) {
+      if (err.statusCode === 409 || err.code === 'BRAND_IN_USE') {
+        return reply.status(409).send({
+          error: { code: 'BRAND_IN_USE', message: err.message, requestId: req.id },
+        });
+      }
+      throw err;
+    }
+  });
+
   // ==========================================
   // Category Management
   // ==========================================
@@ -230,6 +250,20 @@ export const adminRoutes: FastifyPluginAsync = async (server: FastifyInstance) =
     return reply.status(200).send(result);
   });
 
+  server.delete<{ Params: { id: string } }>('/v1/admin/categories/:id', async (req, reply) => {
+    try {
+      const result = await deleteCategory(req.params.id);
+      return reply.status(200).send(result);
+    } catch (err: any) {
+      if (err.statusCode === 409 || err.code === 'CATEGORY_IN_USE') {
+        return reply.status(409).send({
+          error: { code: 'CATEGORY_IN_USE', message: err.message, requestId: req.id },
+        });
+      }
+      throw err;
+    }
+  });
+
   // ==========================================
   // Model Management
   // ==========================================
@@ -306,6 +340,11 @@ export const adminRoutes: FastifyPluginAsync = async (server: FastifyInstance) =
     }
   );
 
+  server.delete<{ Params: { id: string } }>('/v1/admin/models/:id', async (req, reply) => {
+    const result = await deleteModel(req.params.id);
+    return reply.status(200).send(result);
+  });
+
   // ==========================================
   // Bulk Compatibility Engine
   // ==========================================
@@ -366,6 +405,44 @@ export const adminRoutes: FastifyPluginAsync = async (server: FastifyInstance) =
       });
     }
   });
+
+  server.get<{ Querystring: { categoryId?: string } }>(
+    '/v1/admin/compatibility/groups',
+    async (req, reply) => {
+      const list = await getAllCompatibilityGroupsAdmin(req.query.categoryId);
+      return reply.status(200).send(list);
+    }
+  );
+
+  server.patch<{
+    Params: { id: string };
+    Body: { categoryId?: string; modelIds: string[]; isActive?: boolean };
+  }>('/v1/admin/compatibility/groups/:id', async (req, reply) => {
+    try {
+      const result = await updateCompatibilityGroup(
+        req.params.id,
+        req.body,
+        req.user.userId
+      );
+      return reply.status(200).send(result);
+    } catch (err: any) {
+      return reply.status(err.statusCode || 400).send({
+        error: {
+          code: err.code || 'UPDATE_GROUP_FAILED',
+          message: err.message || 'Failed to update compatibility group',
+          requestId: req.id,
+        },
+      });
+    }
+  });
+
+  server.delete<{ Params: { id: string } }>(
+    '/v1/admin/compatibility/groups/:id',
+    async (req, reply) => {
+      const result = await deleteCompatibilityGroup(req.params.id);
+      return reply.status(200).send(result);
+    }
+  );
 
   // ==========================================
   // User Management

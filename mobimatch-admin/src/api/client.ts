@@ -181,6 +181,10 @@ class AdminApiClient {
     return this.request('/v1/admin/brands/deduplicate', { method: 'POST' });
   }
 
+  async deleteBrand(id: string): Promise<any> {
+    return this.request(`/v1/admin/brands/${id}`, { method: 'DELETE' });
+  }
+
   // Categories
   async getCategories(): Promise<any[]> {
     return this.request('/v1/admin/categories');
@@ -212,6 +216,10 @@ class AdminApiClient {
     return this.request('/v1/admin/categories/deduplicate', { method: 'POST' });
   }
 
+  async deleteCategory(id: string): Promise<any> {
+    return this.request(`/v1/admin/categories/${id}`, { method: 'DELETE' });
+  }
+
   // Models
   async getModels(): Promise<any[]> {
     return this.request('/v1/admin/models');
@@ -237,6 +245,30 @@ class AdminApiClient {
 
   async reactivateModel(id: string): Promise<any> {
     return this.request(`/v1/admin/models/${id}/reactivate`, { method: 'POST' });
+  }
+
+  async deleteModel(id: string): Promise<any> {
+    return this.request(`/v1/admin/models/${id}`, { method: 'DELETE' });
+  }
+
+  // Compatibility Groups
+  async getCompatibilityGroups(categoryId?: string): Promise<any[]> {
+    const q = categoryId ? `?categoryId=${encodeURIComponent(categoryId)}` : '';
+    return this.request(`/v1/admin/compatibility/groups${q}`);
+  }
+
+  async updateCompatibilityGroup(
+    id: string,
+    data: { categoryId?: string; modelIds: string[]; isActive?: boolean }
+  ): Promise<any> {
+    return this.request(`/v1/admin/compatibility/groups/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteCompatibilityGroup(id: string): Promise<any> {
+    return this.request(`/v1/admin/compatibility/groups/${id}`, { method: 'DELETE' });
   }
 
   // Bulk Compatibility
